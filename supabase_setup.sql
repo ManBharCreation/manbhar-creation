@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS public.products (
   category TEXT NOT NULL,
   price NUMERIC NOT NULL,
   original_price NUMERIC,
+  "originalPrice" NUMERIC,
   badge TEXT,
   image TEXT,
   images JSONB DEFAULT '[]'::JSONB,
