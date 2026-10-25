@@ -27,9 +27,9 @@ kurta-shop/
 ## 🚀 Quick Start: Admin Login & Pehla Product Add Karna
 
 ### 1. Admin Login Kaise Karein:
-1. Apne browser mein [admin.html](file:///C:/Users/bbhar/.gemini/antigravity/scratch/kurta-shop/admin.html) kholein (ya website ke footer mein **"🔒 Admin Portal"** link par tap karein). Deploy karne ke baad aap seedhe `https://your-site.netlify.app/admin` par ja sakte hain.
-2. **Default Password**: `manbhar123`
-3. Password daalkar **"Login to Dashboard"** par click karein.
+1. Apne browser mein [admin.html](file:///C:/Users/bbhar/.gemini/antigravity/scratch/kurta-shop/admin.html) kholein (ya website ke footer mein **"🔒 Admin Portal"** link par tap karein).
+2. **Admin Password**: Apna password daalein: `Manbhar@211224`
+3. **"Login to Dashboard"** par click karein.
    *(Note: Aap apna password Admin Dashboard ke "Settings & Cloud" tab mein jakar kabhi bhi change kar sakte hain).*
 
 ### 2. Pehla Kurta (Product) Add Kaise Karein:

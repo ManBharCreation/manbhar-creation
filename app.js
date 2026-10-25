@@ -146,6 +146,20 @@ const SHOP_CONFIG = {
   products: []
 };
 
+// Debug Helper for Image Sources
+function logImageSource(context, name, url) {
+  let source = "Unknown";
+  if (!url) source = "Placeholder Fallback";
+  else if (url.includes("supabase.co")) source = "Supabase Cloud Storage (Public CDN)";
+  else if (url.startsWith("data:")) source = "Local Base64 DataURL";
+  else if (url.startsWith("assets/")) source = "Local Static Repo File (assets/)";
+  else if (url.startsWith("http")) source = "External Web URL";
+  else source = "Relative File Path";
+
+  console.log(`[Image Debug] ${context} -> "${name || 'Item'}": [Source: ${source}] ${url ? url.substring(0, 100) : ''}`);
+  return source;
+}
+
 // Global State
 let currentFilter = "all";
 const selectedSizes = {};       // productId -> size string ("M")
@@ -155,19 +169,49 @@ let activeLightboxIndex = 0;
 let supabaseClient = null;
 
 /**
+ * Get Active Supabase Configuration
+ * Checks window.SUPABASE_CONFIG (from config.js) first, then localStorage
+ */
+function getActiveSupabaseConfig() {
+  if (typeof window !== "undefined" && window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url && window.SUPABASE_CONFIG.anonKey) {
+    return {
+      url: window.SUPABASE_CONFIG.url.trim(),
+      key: window.SUPABASE_CONFIG.anonKey.trim()
+    };
+  }
+
+  const savedCfg = localStorage.getItem(STORAGE_KEYS.SUPABASE_CFG);
+  if (savedCfg) {
+    try {
+      const cfg = JSON.parse(savedCfg);
+      if (cfg.url && (cfg.key || cfg.anonKey)) {
+        return {
+          url: cfg.url.trim(),
+          key: (cfg.key || cfg.anonKey).trim()
+        };
+      }
+    } catch (e) {
+      console.warn("Invalid Supabase config in localStorage:", e);
+    }
+  }
+
+  return null;
+}
+
+/**
  * Initialize Supabase Client
  */
 function initSupabaseClient() {
-  const savedCfg = localStorage.getItem(STORAGE_KEYS.SUPABASE_CFG);
-  if (savedCfg && window.supabase) {
+  const cfg = getActiveSupabaseConfig();
+  if (cfg && cfg.url && cfg.key && window.supabase) {
     try {
-      const cfg = JSON.parse(savedCfg);
-      if (cfg.url && cfg.key) {
-        supabaseClient = window.supabase.createClient(cfg.url, cfg.key);
-      }
+      supabaseClient = window.supabase.createClient(cfg.url, cfg.key);
+      console.log("[Supabase] Storefront connected to Cloud:", cfg.url);
     } catch (e) {
-      console.warn("Invalid Supabase config on frontend:", e);
+      console.warn("Failed to initialize Supabase on storefront:", e);
     }
+  } else {
+    console.log("[Supabase] Cloud config not detected. Using local/fallback mode.");
   }
 }
 
@@ -183,13 +227,21 @@ async function loadCatalogData() {
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (prodData) {
+      if (prodData && prodData.length > 0) {
         SHOP_CONFIG.products = prodData.map(normalizeProductRecord);
+        localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(SHOP_CONFIG.products));
+        SHOP_CONFIG.products.forEach(p => {
+          logImageSource("Supabase Product", p.name, p.image);
+        });
       }
 
       const { data: catData } = await supabaseClient.from("categories").select("*");
       if (catData && catData.length > 0) {
         SHOP_CONFIG.categories = catData;
+        localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(SHOP_CONFIG.categories));
+        SHOP_CONFIG.categories.forEach(c => {
+          logImageSource("Supabase Category", c.name, c.image);
+        });
       }
       return;
     } catch (err) {
@@ -202,6 +254,9 @@ async function loadCatalogData() {
   if (localProds) {
     try {
       SHOP_CONFIG.products = JSON.parse(localProds).map(normalizeProductRecord);
+      SHOP_CONFIG.products.forEach(p => {
+        logImageSource("Local Product", p.name, p.image);
+      });
     } catch (e) {}
   } else {
     SHOP_CONFIG.products = [];
@@ -211,6 +266,9 @@ async function loadCatalogData() {
   if (localCats) {
     try {
       SHOP_CONFIG.categories = JSON.parse(localCats);
+      SHOP_CONFIG.categories.forEach(c => {
+        logImageSource("Local Category", c.name, c.image);
+      });
     } catch (e) {}
   }
 }
@@ -997,7 +1055,16 @@ function updateLightboxContent() {
   if (activeLightboxIndex < 0) activeLightboxIndex = images.length - 1;
   if (activeLightboxIndex >= images.length) activeLightboxIndex = 0;
 
-  if (imgEl) imgEl.src = images[activeLightboxIndex];
+  const activeSrc = images[activeLightboxIndex];
+  logImageSource("Lightbox Viewer", activeLightboxProduct.name, activeSrc);
+
+  if (imgEl) {
+    imgEl.src = activeSrc;
+    imgEl.onerror = () => {
+      imgEl.onerror = null;
+      imgEl.src = createSvgPlaceholder(activeLightboxProduct.name, activeLightboxProduct.category);
+    };
+  }
   if (titleEl) titleEl.textContent = activeLightboxProduct.name;
   if (priceEl) priceEl.textContent = `₹${activeLightboxProduct.price}`;
   if (counterEl) counterEl.textContent = `${activeLightboxIndex + 1} / ${images.length}`;
@@ -1009,11 +1076,13 @@ function updateLightboxContent() {
   if (thumbsContainer) {
     if (images.length > 1) {
       thumbsContainer.style.display = "flex";
+      const fallbackSrc = createSvgPlaceholder(activeLightboxProduct.name, activeLightboxProduct.category);
       thumbsContainer.innerHTML = images.map((src, i) => `
         <img 
           src="${src}" 
           alt="Thumb ${i + 1}" 
           class="lightbox-thumb ${i === activeLightboxIndex ? 'active' : ''}" 
+          onerror="this.onerror=null; this.src='${fallbackSrc}';"
           onclick="activeLightboxIndex = ${i}; updateLightboxContent();"
         />
       `).join("");

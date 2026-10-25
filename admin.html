@@ -16,8 +16,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-  <!-- Supabase Client SDK -->
+  <!-- Supabase Client SDK & Global Config -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
 
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="admin.css">
@@ -34,8 +35,9 @@
       <p class="login-subtitle">Admin Dashboard Login</p>
 
       <form id="loginForm" class="login-form">
+        <!-- Admin Password -->
         <div class="form-group">
-          <label for="adminPassword" class="form-label">Enter Admin Password</label>
+          <label for="adminPassword" class="form-label">Admin Password</label>
           <div class="password-input-wrap">
             <input 
               type="password" 
@@ -47,13 +49,12 @@
             />
             <button type="button" id="togglePasswordBtn" class="btn-toggle-eye" aria-label="Show password">👁</button>
           </div>
-          <span class="password-hint">Default password: <code>manbhar123</code></span>
         </div>
 
         <div id="loginError" class="login-error-msg" style="display: none;"></div>
 
-        <button type="submit" class="btn-admin-primary btn-block">
-          <span>Login to Dashboard</span>
+        <button type="submit" id="loginSubmitBtn" class="btn-admin-primary btn-block">
+          <span id="loginBtnText">Login to Dashboard</span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </button>
 
