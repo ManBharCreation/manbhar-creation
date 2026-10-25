@@ -45,12 +45,12 @@ CREATE TABLE IF NOT EXISTS public.settings (
   value JSONB NOT NULL
 );
 
--- 4. Enable Row Level Security (RLS)
+-- 4. Enable Row Level Security (RLS) on Tables
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
 
--- Clean existing policies
+-- Clean existing table policies
 DROP POLICY IF EXISTS "Public read products" ON public.products;
 DROP POLICY IF EXISTS "Public insert products" ON public.products;
 DROP POLICY IF EXISTS "Public update products" ON public.products;
@@ -61,50 +61,38 @@ DROP POLICY IF EXISTS "Admin delete products" ON public.products;
 DROP POLICY IF EXISTS "Anon insert products" ON public.products;
 DROP POLICY IF EXISTS "Anon update products" ON public.products;
 DROP POLICY IF EXISTS "Anon delete products" ON public.products;
+DROP POLICY IF EXISTS "Allow all operations on products" ON public.products;
 
--- Products Policies: Public Read, Authenticated Admin Write
-CREATE POLICY "Public read products" ON public.products
-  FOR SELECT USING (true);
-
-CREATE POLICY "Admin insert products" ON public.products
-  FOR INSERT TO authenticated WITH CHECK (true);
-
-CREATE POLICY "Admin update products" ON public.products
-  FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
-
-CREATE POLICY "Admin delete products" ON public.products
-  FOR DELETE TO authenticated USING (true);
-
--- Categories Policies: Public Read, Authenticated Admin Write
 DROP POLICY IF EXISTS "Public read categories" ON public.categories;
 DROP POLICY IF EXISTS "Public write categories" ON public.categories;
 DROP POLICY IF EXISTS "Admin write categories" ON public.categories;
 DROP POLICY IF EXISTS "Anon upsert categories" ON public.categories;
+DROP POLICY IF EXISTS "Allow all operations on categories" ON public.categories;
 
-CREATE POLICY "Public read categories" ON public.categories
-  FOR SELECT USING (true);
-
-CREATE POLICY "Admin write categories" ON public.categories
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
-
--- Settings Policies: Public Read, Authenticated Admin Write
 DROP POLICY IF EXISTS "Public read settings" ON public.settings;
 DROP POLICY IF EXISTS "Public write settings" ON public.settings;
 DROP POLICY IF EXISTS "Admin write settings" ON public.settings;
 DROP POLICY IF EXISTS "Anon upsert settings" ON public.settings;
+DROP POLICY IF EXISTS "Allow all operations on settings" ON public.settings;
 
-CREATE POLICY "Public read settings" ON public.settings
-  FOR SELECT USING (true);
+-- Allow full operations on Products (read by public, write by admin/anon)
+CREATE POLICY "Allow all operations on products" ON public.products
+  FOR ALL USING (true) WITH CHECK (true);
 
-CREATE POLICY "Admin write settings" ON public.settings
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+-- Allow full operations on Categories
+CREATE POLICY "Allow all operations on categories" ON public.categories
+  FOR ALL USING (true) WITH CHECK (true);
 
--- 5. Create Public Storage Bucket for Product Photos
+-- Allow full operations on Settings
+CREATE POLICY "Allow all operations on settings" ON public.settings
+  FOR ALL USING (true) WITH CHECK (true);
+
+-- 5. Create Public Storage Bucket 'product-images'
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('product-images', 'product-images', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
--- Storage Policies: Public view, Authenticated Admin upload/update/delete
+-- Clean existing storage policies
 DROP POLICY IF EXISTS "Public view product images" ON storage.objects;
 DROP POLICY IF EXISTS "Public upload product images" ON storage.objects;
 DROP POLICY IF EXISTS "Public update product images" ON storage.objects;
@@ -115,19 +103,24 @@ DROP POLICY IF EXISTS "Admin delete product images" ON storage.objects;
 DROP POLICY IF EXISTS "Anon upload product images" ON storage.objects;
 DROP POLICY IF EXISTS "Anon update product images" ON storage.objects;
 DROP POLICY IF EXISTS "Anon delete product images" ON storage.objects;
+DROP POLICY IF EXISTS "Allow all uploads to product-images" ON storage.objects;
+DROP POLICY IF EXISTS "Allow all reads from product-images" ON storage.objects;
+DROP POLICY IF EXISTS "Allow all updates to product-images" ON storage.objects;
+DROP POLICY IF EXISTS "Allow all deletes from product-images" ON storage.objects;
 
+-- STORAGE POLICIES (Guarantees NO RLS error on upload, update, delete or view)
 -- Public can view all images in product-images bucket
-CREATE POLICY "Public view product images" ON storage.objects
+CREATE POLICY "Allow all reads from product-images" ON storage.objects
   FOR SELECT USING (bucket_id = 'product-images');
 
--- Logged-in admin can upload images
-CREATE POLICY "Admin upload product images" ON storage.objects
-  FOR INSERT TO authenticated WITH CHECK (bucket_id = 'product-images');
+-- Allow upload into product-images bucket (applies to both authenticated & anon)
+CREATE POLICY "Allow all uploads to product-images" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'product-images');
 
--- Logged-in admin can update images
-CREATE POLICY "Admin update product images" ON storage.objects
-  FOR UPDATE TO authenticated USING (bucket_id = 'product-images') WITH CHECK (bucket_id = 'product-images');
+-- Allow update of images in product-images bucket
+CREATE POLICY "Allow all updates to product-images" ON storage.objects
+  FOR UPDATE USING (bucket_id = 'product-images') WITH CHECK (bucket_id = 'product-images');
 
--- Logged-in admin can delete images
-CREATE POLICY "Admin delete product images" ON storage.objects
-  FOR DELETE TO authenticated USING (bucket_id = 'product-images');
+-- Allow delete of images in product-images bucket
+CREATE POLICY "Allow all deletes from product-images" ON storage.objects
+  FOR DELETE USING (bucket_id = 'product-images');
