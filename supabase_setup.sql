@@ -46,6 +46,43 @@ CREATE TABLE IF NOT EXISTS public.settings (
   value JSONB NOT NULL
 );
 
+-- Seed default site_settings with real Mumbai store address
+INSERT INTO public.settings (key, value)
+VALUES (
+  'site_settings',
+  '{
+    "hero": {
+      "tagline": "Tradition. Style. Comfort.",
+      "title": "MEN KURTA",
+      "subtitle": "Ethnic wear for every occasion",
+      "occasions": ["Festive", "Wedding", "Casual", "Everyday"],
+      "startingPrice": 799,
+      "autoMinPrice": true,
+      "ctaText": "Shop Now",
+      "ctaScrollTarget": "#products",
+      "bgImage": ""
+    },
+    "contacts": {
+      "displayPhone": "+91 93218 03696",
+      "phone": "919321803696",
+      "mapsUrl": "https://maps.app.goo.gl/jEg8beEL2Htdr6rZ9",
+      "instagramUrl": "https://www.instagram.com/manbhar_creation",
+      "address": "Gate No.2, Ganesh Galli, Shop no.665, Akurli Rd, Near Raghubir School, Hanuman Nagar, Kandivali East, Mumbai, Maharashtra 400101",
+      "timings": "Mon - Sun: 10:30 AM to 9:30 PM"
+    },
+    "features": [
+      "Premium cotton blend",
+      "Breathable & comfortable",
+      "Stylish designs",
+      "Durable fabric",
+      "Trusted quality"
+    ],
+    "footerTagline": "Crafted for traditional elegance & timeless festive celebrations."
+  }'::jsonb
+)
+ON CONFLICT (key) DO UPDATE SET
+  value = EXCLUDED.value;
+
 -- 4. Enable Row Level Security (RLS) on Tables
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;

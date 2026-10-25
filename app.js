@@ -30,7 +30,7 @@ const DEFAULT_SITE_SETTINGS = {
     phone: "919321803696",
     mapsUrl: "https://maps.app.goo.gl/jEg8beEL2Htdr6rZ9",
     instagramUrl: "https://www.instagram.com/manbhar_creation",
-    address: "Shop No. 14, Royal Heritage Arcade, MG Road, Pune, Maharashtra 411001",
+    address: "Gate No.2, Ganesh Galli, Shop no.665, Akurli Rd, Near Raghubir School, Hanuman Nagar, Kandivali East, Mumbai, Maharashtra 400101",
     timings: "Mon - Sun: 10:30 AM to 9:30 PM"
   },
   features: [
@@ -89,7 +89,7 @@ const SHOP_CONFIG = {
   brandSubtitle: "MEN'S KURTA'S",
   phone: "919321803696",              // WhatsApp number with country code (91 for India)
   displayPhone: "+91 93218 03696",
-  address: "Shop No. 14, Royal Heritage Arcade, MG Road, Pune, Maharashtra 411001",
+  address: "Gate No.2, Ganesh Galli, Shop no.665, Akurli Rd, Near Raghubir School, Hanuman Nagar, Kandivali East, Mumbai, Maharashtra 400101",
   timings: "Mon - Sun: 10:30 AM to 9:30 PM",
   googleMapsUrl: "https://maps.app.goo.gl/jEg8beEL2Htdr6rZ9",
   instagramUrl: "https://www.instagram.com/manbhar_creation",

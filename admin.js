@@ -92,7 +92,7 @@ const DEFAULT_SITE_SETTINGS = {
     phone: "919321803696",
     mapsUrl: "https://maps.app.goo.gl/jEg8beEL2Htdr6rZ9",
     instagramUrl: "https://www.instagram.com/manbhar_creation",
-    address: "Shop No. 14, Royal Heritage Arcade, MG Road, Pune, Maharashtra 411001",
+    address: "Gate No.2, Ganesh Galli, Shop no.665, Akurli Rd, Near Raghubir School, Hanuman Nagar, Kandivali East, Mumbai, Maharashtra 400101",
     timings: "Mon - Sun: 10:30 AM to 9:30 PM"
   },
   features: [
@@ -1687,6 +1687,16 @@ async function saveAllSiteSettings() {
 
   const heroInsta = document.getElementById("contactInstagramUrl");
   if (heroInsta) currentSiteSettings.contacts.instagramUrl = cleanInstagramUrl(heroInsta.value);
+
+  const storeAddrInput = document.getElementById("cfgStoreAddress");
+  if (storeAddrInput && storeAddrInput.value.trim()) {
+    currentSiteSettings.contacts.address = storeAddrInput.value.trim();
+  }
+
+  const storeTimingsInput = document.getElementById("cfgStoreTimings");
+  if (storeTimingsInput && storeTimingsInput.value.trim()) {
+    currentSiteSettings.contacts.timings = storeTimingsInput.value.trim();
+  }
 
   populateStoreSettingsInputs();
 
