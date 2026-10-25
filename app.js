@@ -425,7 +425,8 @@ function applySiteSettings() {
   // Hero CTA Button
   const heroCtaBtn = document.getElementById("heroCtaBtn");
   const heroCtaBtnText = document.getElementById("heroCtaBtnText");
-  if (heroCtaBtn) heroCtaBtn.href = hero.ctaScrollTarget || "#products";
+  const hasProducts = SHOP_CONFIG.products && SHOP_CONFIG.products.length > 0;
+  if (heroCtaBtn) heroCtaBtn.href = hasProducts ? (hero.ctaScrollTarget || "#products") : "#categories";
   if (heroCtaBtnText) heroCtaBtnText.textContent = hero.ctaText || "Shop Now";
 
   // Hero Background Image
@@ -720,39 +721,24 @@ function renderProducts() {
     clearBtn.style.display = currentFilter === "all" ? "none" : "inline-flex";
   }
 
-  // EMPTY STATE (When no products added or filter matches 0)
+  // If store catalog is currently empty, hide the entire products section cleanly
+  const prodSec = document.getElementById("products");
+  if (SHOP_CONFIG.products.length === 0) {
+    if (prodSec) prodSec.style.display = "none";
+    grid.innerHTML = "";
+    return;
+  } else {
+    if (prodSec) prodSec.style.display = "";
+  }
+
+  // If a category filter returns 0 products
   if (filteredProducts.length === 0) {
-    if (SHOP_CONFIG.products.length === 0) {
-      // Entire store empty state
-      grid.innerHTML = `
-        <div class="empty-catalog-card">
-          <div class="empty-motif">❖</div>
-          <h3 class="empty-title">Products jaldi aa rahe hain</h3>
-          <p class="empty-desc">
-            Humari nayi Men's Kurta festive collection taiyar ho rahi hai aur jald hi live hone wali hai!<br>
-            Aap kisi bhi customized kurta order ya requirement ke liye hume seedhe WhatsApp par message kar sakte hain.
-          </p>
-          <div class="empty-actions">
-            <a href="https://wa.me/${SHOP_CONFIG.phone}?text=${encodeURIComponent('Hello ManBhar Creation! I would like to inquire about your upcoming men\'s kurta collection.')}" target="_blank" rel="noopener" class="btn-empty-whatsapp">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.669-.699c.969.529 1.836.78 2.791.78 3.181 0 5.767-2.586 5.768-5.766 0-3.18-2.587-5.766-5.768-5.766zm9.969 5.766c0 5.514-4.486 10-10 10-1.742 0-3.376-.447-4.802-1.229l-5.198 1.362 1.385-5.064c-.878-1.493-1.385-3.235-1.385-5.069 0-5.514 4.486-10 10-10s10 4.486 10 10z"/></svg>
-              <span>Order Custom Kurta on WhatsApp</span>
-            </a>
-            <a href="admin.html" class="btn-empty-admin">
-              <span>+ Add Products (Admin)</span>
-            </a>
-          </div>
-        </div>
-      `;
-    } else {
-      // Category filter empty state
-      grid.innerHTML = `
-        <div class="empty-catalog-card">
-          <h3 class="empty-title">No ${currentFilter.toUpperCase()} Kurtas Available</h3>
-          <p class="empty-desc">Humare paas is category mein abhi stock khatam hai. Dusri categories dekhein ya All Styles par click karein.</p>
-          <button class="filter-pill active" onclick="setFilter('all')">View All Styles</button>
-        </div>
-      `;
-    }
+    grid.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 3rem 1rem; color: var(--color-text-muted);">
+        <p style="font-size: 1.1rem; margin-bottom: 1rem;">No ${currentFilter.toUpperCase()} kurtas available right now.</p>
+        <button class="filter-pill active" onclick="setFilter('all')">View All Styles</button>
+      </div>
+    `;
     return;
   }
 
