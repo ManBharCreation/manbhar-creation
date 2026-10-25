@@ -416,10 +416,26 @@ async function persistProduct(productData) {
     const isAuth = await ensureAuthenticatedSession();
     if (!isAuth) throw new Error("Authenticated session required.");
 
+    // Clean DB record: strictly match Supabase public.products columns!
+    const dbRecord = {
+      id: productData.id,
+      name: productData.name,
+      category: productData.category,
+      price: productData.price,
+      original_price: productData.original_price !== undefined ? productData.original_price : (productData.originalPrice || null),
+      badge: productData.badge || null,
+      image: productData.image,
+      images: productData.images || [],
+      sizes: productData.sizes || [],
+      stock: productData.stock || {},
+      is_out_of_stock: productData.is_out_of_stock !== undefined ? productData.is_out_of_stock : (productData.isOutOfStock || false),
+      description: productData.description || null
+    };
+
     try {
       const { data, error } = await supabaseClient
         .from("products")
-        .upsert(productData);
+        .upsert(dbRecord);
       if (error) throw error;
     } catch (err) {
       console.error("Supabase upsert failed:", err);
@@ -482,8 +498,17 @@ async function persistCategory(catData) {
     const isAuth = await ensureAuthenticatedSession();
     if (!isAuth) return;
 
+    // Clean DB record: strictly match Supabase public.categories columns!
+    const dbCat = {
+      id: catData.id,
+      name: catData.name,
+      tagline: catData.tagline || null,
+      starting_price: catData.starting_price !== undefined ? catData.starting_price : (catData.startingPrice || 0),
+      image: catData.image || null
+    };
+
     try {
-      const { error } = await supabaseClient.from("categories").upsert(catData);
+      const { error } = await supabaseClient.from("categories").upsert(dbCat);
       if (error) throw error;
     } catch (err) {
       console.error("Supabase category upsert failed:", err);
@@ -845,7 +870,6 @@ function initProductForm() {
       category,
       price,
       original_price: originalPrice,
-      originalPrice: originalPrice, // camelCase alias for frontend
       badge,
       image: currentFormImages[0], // primary cover
       images: currentFormImages,
