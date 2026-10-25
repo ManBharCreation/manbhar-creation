@@ -7,21 +7,64 @@
 
 // Storage Keys
 const STORAGE_KEYS = {
-  AUTH: "manbhar_admin_auth",
-  PASSWORD: "manbhar_admin_password",
   SUPABASE_CFG: "manbhar_supabase_config",
   PRODUCTS: "manbhar_products",
   CATEGORIES: "manbhar_categories",
   SITE_SETTINGS: "manbhar_site_settings"
 };
 
-const DEFAULT_ADMIN_PASSWORD = "Manbhar@211224";
+// Detailed Error Message Formatter for Supabase Errors
+function formatSupabaseError(error, defaultContext = "Operation failed") {
+  if (!error) return defaultContext;
+  const msg = error.message || error.error_description || String(error);
+  const status = error.status || error.statusCode || "";
+
+  if (msg.includes("row-level security") || msg.includes("row level security") || msg.includes("violates row-level security policy")) {
+    return `Row-Level Security (RLS) Policy Error: Only authenticated admin can perform this write/upload operation. Your login session may have expired or is not logged in. Please re-login to the Admin Dashboard.`;
+  }
+  if (msg.includes("Bucket not found") || msg.includes("bucket")) {
+    return `Storage Bucket Error: Bucket 'product-images' was not found in Supabase Storage. Please create the bucket in Supabase Dashboard -> Storage.`;
+  }
+  if (msg.includes("JWT") || msg.includes("token") || msg.includes("expired") || msg.includes("invalid claim")) {
+    return `Login Session Expired: Your admin login token has expired. Please re-login to the Admin Dashboard.`;
+  }
+  if (msg.includes("network") || msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
+    return `Network Error: Unable to connect to Supabase servers. Please check your internet connection.`;
+  }
+  if (msg.includes("duplicate key") || msg.includes("unique constraint")) {
+    return `Database Conflict: An item with this ID already exists.`;
+  }
+  return `${defaultContext}: ${msg}${status ? ` (Status: ${status})` : ""}`;
+}
+
+// Session Validator Helper
+async function ensureAuthenticatedSession() {
+  if (!supabaseClient) {
+    alert("Supabase client is not connected. Please check config.js.");
+    return false;
+  }
+  try {
+    const { data: { session }, error } = await supabaseClient.auth.getSession();
+    if (error || !session || !session.user) {
+      alert("⚠️ Admin Login Session Expired: Please log in again to continue.");
+      const loginScreen = document.getElementById("loginScreen");
+      const adminDashboard = document.getElementById("adminDashboard");
+      if (loginScreen) loginScreen.style.display = "flex";
+      if (adminDashboard) adminDashboard.style.display = "none";
+      return false;
+    }
+    return true;
+  } catch (e) {
+    alert("Session verification failed. Please re-login.");
+    return false;
+  }
+}
 
 // Debug Helper for Image Sources
 function logImageSource(context, name, url) {
   let source = "Unknown";
   if (!url) source = "Placeholder Fallback";
-  else if (url.includes("supabase.co")) source = "Supabase Cloud Storage";
+  else if (url.includes("supabase.co")) source = "Supabase Cloud Storage (Public CDN)";
   else if (url.startsWith("data:")) source = "Local Base64 DataURL";
   else if (url.startsWith("assets/")) source = "Local Static File (assets/)";
   else if (url.startsWith("http")) source = "External Web URL";
@@ -196,19 +239,57 @@ async function initAuth() {
   const loginScreen = document.getElementById("loginScreen");
   const adminDashboard = document.getElementById("adminDashboard");
   const loginForm = document.getElementById("loginForm");
+  const adminEmail = document.getElementById("adminEmail");
   const adminPassword = document.getElementById("adminPassword");
   const loginError = document.getElementById("loginError");
   const togglePasswordBtn = document.getElementById("togglePasswordBtn");
   const logoutBtn = document.getElementById("logoutBtn");
+  const loginSubmitBtn = document.getElementById("loginSubmitBtn");
+  const loginBtnText = document.getElementById("loginBtnText");
 
   initSupabase();
 
-  // Check saved session
-  const isAuth = sessionStorage.getItem(STORAGE_KEYS.AUTH) === "true" || localStorage.getItem(STORAGE_KEYS.AUTH) === "true";
-  if (isAuth) {
-    loginScreen.style.display = "none";
-    adminDashboard.style.display = "block";
-    loadDashboard();
+  if (!supabaseClient) {
+    if (loginError) {
+      loginError.textContent = "Supabase configuration missing in config.js. Please check your credentials.";
+      loginError.style.display = "block";
+    }
+  }
+
+  // 1. Check existing authenticated session in Supabase Auth (persists across refreshes)
+  if (supabaseClient) {
+    try {
+      const { data: { session }, error } = await supabaseClient.auth.getSession();
+      if (!error && session && session.user) {
+        console.log(`[Supabase Auth] Active session restored for: ${session.user.email}`);
+        loginScreen.style.display = "none";
+        adminDashboard.style.display = "block";
+        loadDashboard();
+      } else {
+        loginScreen.style.display = "flex";
+        adminDashboard.style.display = "none";
+      }
+    } catch (err) {
+      console.warn("Session restore error:", err);
+      loginScreen.style.display = "flex";
+      adminDashboard.style.display = "none";
+    }
+
+    // 2. React to Auth State Changes (expiry, sign out, token refresh)
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+      console.log(`[Supabase Auth Event] ${event}`);
+      if (event === "SIGNED_IN" && session) {
+        loginScreen.style.display = "none";
+        adminDashboard.style.display = "block";
+        loadDashboard();
+      } else if (event === "SIGNED_OUT" || !session) {
+        loginScreen.style.display = "flex";
+        adminDashboard.style.display = "none";
+        if (adminPassword) adminPassword.value = "";
+      } else if (event === "TOKEN_REFRESHED" && session) {
+        console.log("[Supabase Auth] Access token refreshed automatically.");
+      }
+    });
   } else {
     loginScreen.style.display = "flex";
     adminDashboard.style.display = "none";
@@ -223,48 +304,75 @@ async function initAuth() {
     });
   }
 
-  // Submit password form
+  // Submit form via Supabase Auth: signInWithPassword
   if (loginForm) {
-    loginForm.addEventListener("submit", (e) => {
+    loginForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       if (loginError) loginError.style.display = "none";
 
-      const entered = adminPassword ? adminPassword.value.trim() : "";
-      const currentPassword = localStorage.getItem(STORAGE_KEYS.PASSWORD) || DEFAULT_ADMIN_PASSWORD;
-
-      if (!entered) {
-        if (loginError) {
-          loginError.textContent = "Please enter the admin password.";
+      if (!supabaseClient) {
+        initSupabase();
+        if (!supabaseClient) {
+          loginError.textContent = "Supabase client not connected. Please verify config.js.";
           loginError.style.display = "block";
+          return;
         }
+      }
+
+      const email = adminEmail ? adminEmail.value.trim() : "";
+      const password = adminPassword ? adminPassword.value : "";
+
+      if (!email || !password) {
+        loginError.textContent = "Please enter both admin email and password.";
+        loginError.style.display = "block";
         return;
       }
 
-      if (entered === currentPassword) {
-        sessionStorage.setItem(STORAGE_KEYS.AUTH, "true");
-        localStorage.setItem(STORAGE_KEYS.AUTH, "true");
-        loginScreen.style.display = "none";
-        adminDashboard.style.display = "block";
-        loadDashboard();
-        showToast("Welcome to ManBhar Admin Dashboard!");
-      } else {
-        if (loginError) {
-          loginError.textContent = "Incorrect password. Please try again.";
-          loginError.style.display = "block";
+      if (loginSubmitBtn) loginSubmitBtn.disabled = true;
+      if (loginBtnText) loginBtnText.textContent = "Verifying with Supabase Auth...";
+
+      try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+          email: email,
+          password: password
+        });
+
+        if (error) {
+          throw error;
         }
-        if (adminPassword) {
-          adminPassword.value = "";
-          adminPassword.focus();
+
+        if (data && data.session) {
+          loginScreen.style.display = "none";
+          adminDashboard.style.display = "block";
+          loadDashboard();
+          showToast(`Welcome back, ${data.user.email}!`);
         }
+      } catch (err) {
+        let msg = err.message || "Failed to log in.";
+        if (msg.includes("Invalid login credentials")) {
+          msg = "Invalid email or password. Please verify your admin credentials in Supabase Dashboard -> Authentication.";
+        } else if (msg.includes("Email not confirmed")) {
+          msg = "Email is not confirmed. In Supabase Dashboard -> Authentication -> Users, make sure 'Auto Confirm User' is checked.";
+        }
+        loginError.textContent = msg;
+        loginError.style.display = "block";
+      } finally {
+        if (loginSubmitBtn) loginSubmitBtn.disabled = false;
+        if (loginBtnText) loginBtnText.textContent = "Login to Dashboard";
       }
     });
   }
 
   // Logout
   if (logoutBtn) {
-    logoutBtn.addEventListener("click", () => {
-      sessionStorage.removeItem(STORAGE_KEYS.AUTH);
-      localStorage.removeItem(STORAGE_KEYS.AUTH);
+    logoutBtn.addEventListener("click", async () => {
+      if (supabaseClient) {
+        try {
+          await supabaseClient.auth.signOut();
+        } catch (e) {
+          console.warn("Sign out error:", e);
+        }
+      }
       loginScreen.style.display = "flex";
       adminDashboard.style.display = "none";
       if (adminPassword) adminPassword.value = "";
@@ -305,6 +413,9 @@ async function fetchProducts() {
 
 async function persistProduct(productData) {
   if (supabaseClient) {
+    const isAuth = await ensureAuthenticatedSession();
+    if (!isAuth) throw new Error("Authenticated session required.");
+
     try {
       const { data, error } = await supabaseClient
         .from("products")
@@ -312,7 +423,9 @@ async function persistProduct(productData) {
       if (error) throw error;
     } catch (err) {
       console.error("Supabase upsert failed:", err);
-      showToast("Cloud sync failed. Saved to Local Storage.");
+      const detail = formatSupabaseError(err, "Failed to save product to Cloud Database");
+      alert(detail);
+      throw err;
     }
   }
 
@@ -328,10 +441,16 @@ async function persistProduct(productData) {
 
 async function removeProduct(productId) {
   if (supabaseClient) {
+    const isAuth = await ensureAuthenticatedSession();
+    if (!isAuth) return;
+
     try {
-      await supabaseClient.from("products").delete().eq("id", productId);
+      const { error } = await supabaseClient.from("products").delete().eq("id", productId);
+      if (error) throw error;
     } catch (err) {
       console.error("Supabase delete failed:", err);
+      alert(formatSupabaseError(err, "Failed to delete product from Cloud Database"));
+      return;
     }
   }
 
@@ -360,10 +479,16 @@ async function fetchCategories() {
 
 async function persistCategory(catData) {
   if (supabaseClient) {
+    const isAuth = await ensureAuthenticatedSession();
+    if (!isAuth) return;
+
     try {
-      await supabaseClient.from("categories").upsert(catData);
+      const { error } = await supabaseClient.from("categories").upsert(catData);
+      if (error) throw error;
     } catch (err) {
       console.error("Supabase category upsert failed:", err);
+      alert(formatSupabaseError(err, "Failed to save category banner"));
+      return;
     }
   }
 
@@ -431,13 +556,18 @@ async function persistSiteSettings(settingsObj) {
   localStorage.setItem(STORAGE_KEYS.SITE_SETTINGS, JSON.stringify(settingsObj));
 
   if (supabaseClient) {
+    const isAuth = await ensureAuthenticatedSession();
+    if (!isAuth) return;
+
     try {
-      await supabaseClient.from("settings").upsert({
+      const { error } = await supabaseClient.from("settings").upsert({
         key: "site_settings",
         value: settingsObj
       });
+      if (error) throw error;
     } catch (err) {
       console.error("Supabase settings upsert failed:", err);
+      alert(formatSupabaseError(err, "Failed to save site settings"));
     }
   }
 }
@@ -512,8 +642,13 @@ async function uploadFile(file, index, total) {
   // 1. Compress to WebP in browser
   const compressedBlob = await compressImageToWebP(file);
 
-  // 2. Upload to Supabase Storage if connected
+  // 2. Upload to Supabase Storage with authenticated session
   if (supabaseClient) {
+    const isAuth = await ensureAuthenticatedSession();
+    if (!isAuth) {
+      throw new Error("Admin login session expired. Please log in again.");
+    }
+
     try {
       if (progressText) progressText.textContent = `Uploading photo ${index + 1} of ${total} to Supabase Cloud...`;
       const fileName = `products/kurta_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.webp`;
@@ -524,27 +659,28 @@ async function uploadFile(file, index, total) {
           upsert: true
         });
 
-      if (!error && data) {
+      if (error) {
+        console.error("Supabase Storage Upload Error:", error);
+        const errorDetail = formatSupabaseError(error, "Product Image Storage Upload Failed");
+        alert(errorDetail);
+        throw new Error(errorDetail);
+      }
+
+      if (data) {
         const { data: publicUrlData } = supabaseClient.storage
           .from("product-images")
           .getPublicUrl(fileName);
         logImageSource("Product Image Upload", fileName, publicUrlData.publicUrl);
         return publicUrlData.publicUrl;
-      } else if (error) {
-        console.error("Supabase Storage Upload Error:", error);
-        alert(`Supabase Storage Upload Error: ${error.message}\nEnsure 'product-images' bucket is created in Supabase with Public access!`);
       }
     } catch (err) {
-      console.warn("Supabase storage upload error, falling back to data URL:", err);
+      console.warn("Storage upload failed:", err);
+      throw err;
     }
   } else {
-    console.warn("Supabase is not connected. Product image saved as local Base64 URL.");
+    alert("Supabase is not connected. Please verify config.js.");
+    throw new Error("Supabase is not connected.");
   }
-
-  // Fallback: Return Base64 WebP Data URL
-  const dataUrl = await blobToDataUrl(compressedBlob);
-  logImageSource("Product Image (Local DataURL Fallback)", file.name, dataUrl);
-  return dataUrl;
 }
 
 function renderPhotoPreviews() {
@@ -962,8 +1098,10 @@ function renderCategoryCardsEditor() {
 
 window.handleCategoryPhotoChange = async function(catId, file) {
   if (!file) return;
+  const isAuth = await ensureAuthenticatedSession();
+  if (!isAuth) return;
+
   const compressed = await compressImageToWebP(file, 800, 0.85);
-  let finalUrl = "";
 
   if (supabaseClient) {
     try {
@@ -972,29 +1110,29 @@ window.handleCategoryPhotoChange = async function(catId, file) {
       const { data, error } = await supabaseClient.storage
         .from("product-images")
         .upload(fileName, compressed, { contentType: "image/webp", upsert: true });
-      if (!error && data) {
-        const { data: pubUrl } = supabaseClient.storage.from("product-images").getPublicUrl(fileName);
-        finalUrl = pubUrl.publicUrl;
-        logImageSource("Category Cover Upload", catId, finalUrl);
-      } else if (error) {
+
+      if (error) {
         console.error("Category storage upload error:", error);
-        alert(`Supabase Storage Upload Error: ${error.message}`);
+        alert(formatSupabaseError(error, "Category Image Upload Failed"));
+        return;
+      }
+
+      if (data) {
+        const { data: pubUrl } = supabaseClient.storage.from("product-images").getPublicUrl(fileName);
+        const finalUrl = pubUrl.publicUrl;
+        logImageSource("Category Cover Upload", catId, finalUrl);
+
+        const preview = document.getElementById(`cat-img-${catId}`);
+        if (preview) preview.src = finalUrl;
+
+        const cat = currentCategories.find(c => c.id === catId);
+        if (cat) cat.image = finalUrl;
+        showToast("Category cover uploaded! Click 'Save Banner' to publish.");
       }
     } catch (err) {
-      console.warn("Storage upload failed, using data URL fallback:", err);
+      alert("Category Upload Error: " + formatSupabaseError(err));
     }
   }
-
-  if (!finalUrl) {
-    finalUrl = await blobToDataUrl(compressed);
-    logImageSource("Category Cover (Local Fallback)", catId, finalUrl);
-  }
-
-  const preview = document.getElementById(`cat-img-${catId}`);
-  if (preview) preview.src = finalUrl;
-
-  const cat = currentCategories.find(c => c.id === catId);
-  if (cat) cat.image = finalUrl;
 };
 
 window.saveCategoryCard = async function(catId) {
@@ -1090,7 +1228,7 @@ function initSettings() {
   const passMsg = document.getElementById("passwordChangeMsg");
 
   if (changePassBtn) {
-    changePassBtn.addEventListener("click", () => {
+    changePassBtn.addEventListener("click", async () => {
       const n = newPass.value.trim();
       const c = confPass.value.trim();
 
@@ -1108,13 +1246,36 @@ function initSettings() {
         return;
       }
 
-      localStorage.setItem(STORAGE_KEYS.PASSWORD, n);
-      passMsg.className = "password-msg success";
-      passMsg.textContent = "✅ Admin password updated successfully!";
-      passMsg.style.display = "block";
-      newPass.value = "";
-      confPass.value = "";
-      showToast("Password updated successfully!");
+      if (supabaseClient) {
+        const isAuth = await ensureAuthenticatedSession();
+        if (!isAuth) {
+          passMsg.className = "password-msg error";
+          passMsg.textContent = "Session expired. Please log in again.";
+          passMsg.style.display = "block";
+          return;
+        }
+
+        passMsg.className = "password-msg";
+        passMsg.textContent = "Updating password in Supabase Auth...";
+        passMsg.style.display = "block";
+
+        try {
+          const { error } = await supabaseClient.auth.updateUser({ password: n });
+          if (error) throw error;
+          passMsg.className = "password-msg success";
+          passMsg.textContent = "✅ Admin password updated successfully in Supabase Auth!";
+          newPass.value = "";
+          confPass.value = "";
+          showToast("Password updated in Supabase Auth!");
+        } catch (err) {
+          passMsg.className = "password-msg error";
+          passMsg.textContent = formatSupabaseError(err, "Failed to update password");
+        }
+      } else {
+        passMsg.className = "password-msg error";
+        passMsg.textContent = "Supabase is not connected. Admin password is managed in Supabase Auth.";
+        passMsg.style.display = "block";
+      }
     });
   }
 
@@ -1638,47 +1799,45 @@ function initHeroEditor() {
       const file = e.target.files[0];
       if (!file) return;
 
+      const isAuth = await ensureAuthenticatedSession();
+      if (!isAuth) return;
+
       try {
         showToast("Compressing hero background image to WebP...");
         const webpBlob = await compressImageToWebP(file, 1600, 0.82);
-        let finalBgUrl = "";
 
         if (supabaseClient) {
-          try {
-            showToast("Uploading hero background to Supabase Storage...");
-            const fileName = `hero/hero_bg_${Date.now()}.webp`;
-            const { data, error } = await supabaseClient.storage
-              .from("product-images")
-              .upload(fileName, webpBlob, { contentType: "image/webp", upsert: true });
+          showToast("Uploading hero background to Supabase Storage...");
+          const fileName = `hero/hero_bg_${Date.now()}.webp`;
+          const { data, error } = await supabaseClient.storage
+            .from("product-images")
+            .upload(fileName, webpBlob, { contentType: "image/webp", upsert: true });
 
-            if (!error && data) {
-              const { data: pubUrl } = supabaseClient.storage.from("product-images").getPublicUrl(fileName);
-              finalBgUrl = pubUrl.publicUrl;
-              logImageSource("Hero Background Upload", fileName, finalBgUrl);
-            } else if (error) {
-              console.error("Hero background upload error:", error);
-              alert(`Supabase Storage Upload Error: ${error.message}\nMake sure 'product-images' bucket is public!`);
-            }
-          } catch (storageErr) {
-            console.warn("Storage upload failed for hero bg:", storageErr);
+          if (error) {
+            console.error("Hero background upload error:", error);
+            alert(formatSupabaseError(error, "Hero Background Storage Upload Failed"));
+            return;
           }
+
+          if (data) {
+            const { data: pubUrl } = supabaseClient.storage.from("product-images").getPublicUrl(fileName);
+            const finalBgUrl = pubUrl.publicUrl;
+            logImageSource("Hero Background Upload", fileName, finalBgUrl);
+
+            currentSiteSettings.hero.bgImage = finalBgUrl;
+
+            const removeBtn = document.getElementById("btnRemoveHeroBg");
+            if (removeBtn) removeBtn.style.display = "inline-block";
+
+            updateLiveHeroPreview();
+            showToast("Hero background image loaded! Click 'Save & Publish' to apply.");
+          }
+        } else {
+          alert("Supabase is not connected. Please check config.js.");
         }
-
-        if (!finalBgUrl) {
-          finalBgUrl = await blobToDataUrl(webpBlob);
-          logImageSource("Hero Background (Local DataURL Fallback)", file.name, finalBgUrl);
-        }
-
-        currentSiteSettings.hero.bgImage = finalBgUrl;
-
-        const removeBtn = document.getElementById("btnRemoveHeroBg");
-        if (removeBtn) removeBtn.style.display = "inline-block";
-
-        updateLiveHeroPreview();
-        showToast("Hero background image loaded! Click 'Save & Publish' to apply.");
       } catch (err) {
         console.error("Hero background compress failed:", err);
-        showToast("Failed to process background image. Please try another file.");
+        alert(formatSupabaseError(err, "Failed to process hero background"));
       }
     });
   }

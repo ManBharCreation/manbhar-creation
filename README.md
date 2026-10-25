@@ -28,9 +28,9 @@ kurta-shop/
 
 ### 1. Admin Login Kaise Karein:
 1. Apne browser mein [admin.html](file:///C:/Users/bbhar/.gemini/antigravity/scratch/kurta-shop/admin.html) kholein (ya website ke footer mein **"🔒 Admin Portal"** link par tap karein).
-2. **Admin Password**: Apna password daalein: `Manbhar@211224`
+2. **Admin Email & Password**: Apna Supabase Auth email (e.g. `admin@manbhar.com`) aur password daalein.
 3. **"Login to Dashboard"** par click karein.
-   *(Note: Aap apna password Admin Dashboard ke "Settings & Cloud" tab mein jakar kabhi bhi change kar sakte hain).*
+   *(Note: Single admin credentials Supabase Dashboard > Authentication > Users se banaye jaate hain).*
 
 ### 2. Pehla Kurta (Product) Add Kaise Karein:
 1. Admin Dashboard khulte hi **"➕ Add Product"** tab open hoga.
