@@ -9,6 +9,6 @@
  * You can find these in: Supabase Dashboard -> Project Settings -> API
  */
 window.SUPABASE_CONFIG = {
-  url: "",       // e.g. "https://your-project.supabase.co"
-  anonKey: ""    // e.g. "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  url: "https://mwkkidoipcceutosfwwv.supabase.co",
+  anonKey: "sb_publishable_YHmj0X_nAlOPjJMB5RCi7g_hBIm_O48"
 };
