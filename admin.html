@@ -132,6 +132,10 @@
         <span class="tab-icon">🖼️</span>
         <span>Category Cards</span>
       </button>
+      <button class="tab-btn" data-tab="tab-offers">
+        <span class="tab-icon">🎁</span>
+        <span>Offers & Deals</span>
+      </button>
       <button class="tab-btn" data-tab="tab-settings">
         <span class="tab-icon">⚙️</span>
         <span>Settings & Cloud</span>
@@ -200,6 +204,24 @@
                   <option value="Limited Edition">
                   <option value="Groom's Choice">
                 </datalist>
+              </div>
+            </div>
+
+            <!-- FLASH SALE DEAL TOGGLE -->
+            <div class="flash-sale-config-box" style="background: rgba(225, 29, 72, 0.05); border: 1px dashed #FDA4AF; padding: 0.85rem; border-radius: 8px; margin-bottom: 1.25rem;">
+              <div class="form-grid-2">
+                <div class="form-group checkbox-toggle-group">
+                  <label class="custom-checkbox-wrap">
+                    <input type="checkbox" id="prodFlashSale">
+                    <span class="custom-checkbox-mark"></span>
+                    <span class="custom-checkbox-text" style="font-weight: 700; color: #BE123C;">⚡ Mark as Flash Sale Deal</span>
+                  </label>
+                  <span class="label-hint">Shows live countdown timer & flash sale badge on this kurta</span>
+                </div>
+                <div class="form-group" id="prodFlashSaleEndGroup" style="display: none;">
+                  <label for="prodFlashSaleEnd" class="form-label">Flash Sale End Date & Time</label>
+                  <input type="datetime-local" id="prodFlashSaleEnd" class="form-input">
+                </div>
               </div>
             </div>
 
@@ -557,6 +579,343 @@
           <div id="categoryCardsEditor" class="category-cards-editor-grid">
             <!-- Dynamically populated by admin.js -->
           </div>
+        </div>
+      </section>
+
+      <!-- TAB: OFFERS & DEALS -->
+      <section id="tab-offers" class="tab-pane">
+        <div class="admin-card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">🎁 Offers, Coupons & Deals Manager</h2>
+              <p class="card-subtitle">Control top announcement bar, countdown timer, coupon codes, combo discounts & festival popup</p>
+            </div>
+            <button type="button" class="btn-admin-primary" id="btnSaveOffersTop">💾 Save & Publish Offers</button>
+          </div>
+
+          <!-- 1. Top Announcement Bar & Countdown Timer -->
+          <div class="settings-box">
+            <div class="settings-box-header">
+              <span class="badge-tech">Storefront Header</span>
+              <h3>Top Announcement Bar & Live Countdown</h3>
+            </div>
+            <p class="settings-desc">
+              Highlighted banner displayed above website header. Set a countdown timer to create urgency — when time runs out, the bar automatically hides itself.
+            </p>
+
+            <div class="form-group checkbox-toggle-group">
+              <label class="custom-checkbox-wrap">
+                <input type="checkbox" id="offerAnnouncementEnabled" checked>
+                <span class="custom-checkbox-mark"></span>
+                <span class="custom-checkbox-text">Enable Announcement Bar</span>
+              </label>
+            </div>
+
+            <div class="form-group">
+              <label for="offerAnnouncementText" class="form-label">Announcement Text</label>
+              <input type="text" id="offerAnnouncementText" class="form-input" placeholder="e.g. 🎉 Special Festive Offer: Flat 20% OFF on all Kurta Sets | Use Code: FESTIVE20">
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label">Background Color</label>
+                <div class="color-swatch-picker" id="offerColorPicker">
+                  <label class="color-swatch-option">
+                    <input type="radio" name="offerBgColor" value="maroon" checked>
+                    <span class="swatch-sample swatch-maroon"></span>
+                    <span>Royal Maroon</span>
+                  </label>
+                  <label class="color-swatch-option">
+                    <input type="radio" name="offerBgColor" value="gold">
+                    <span class="swatch-sample swatch-gold"></span>
+                    <span>Imperial Gold</span>
+                  </label>
+                  <label class="color-swatch-option">
+                    <input type="radio" name="offerBgColor" value="green">
+                    <span class="swatch-sample swatch-green"></span>
+                    <span>Heritage Green</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="offerAnnouncementLink" class="form-label">Action Link (optional)</label>
+                <input type="text" id="offerAnnouncementLink" class="form-input" placeholder="e.g. #products or category URL">
+              </div>
+            </div>
+
+            <hr class="settings-divider" style="margin: 1.25rem 0; border: none; border-top: 1px dashed var(--admin-border);">
+
+            <!-- Countdown Timer Config -->
+            <div class="form-grid-2">
+              <div class="form-group checkbox-toggle-group">
+                <label class="custom-checkbox-wrap">
+                  <input type="checkbox" id="offerCountdownEnabled">
+                  <span class="custom-checkbox-mark"></span>
+                  <span class="custom-checkbox-text">Enable Countdown Timer</span>
+                </label>
+                <span class="label-hint">Automatically hides banner when timer reaches zero</span>
+              </div>
+
+              <div class="form-group" id="offerCountdownGroup" style="display: none;">
+                <label for="offerCountdownEnd" class="form-label">Offer End Date & Time</label>
+                <input type="datetime-local" id="offerCountdownEnd" class="form-input">
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Coupon Codes Manager -->
+          <div class="settings-box">
+            <div class="settings-box-header">
+              <span class="badge-tech">Discount Coupons</span>
+              <h3>Promo & Coupon Codes</h3>
+            </div>
+            <p class="settings-desc">
+              Create discount coupons for customers. Add percentage (% off) or flat (₹ off) coupons with optional minimum order and expiry dates.
+            </p>
+
+            <!-- Add / Edit Coupon Form -->
+            <div class="coupon-editor-box" style="background: rgba(201, 162, 75, 0.08); border: 1.5px solid var(--admin-border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+              <h4 id="couponEditorTitle" style="margin-top: 0; margin-bottom: 1rem; color: var(--admin-maroon);">+ Add New Coupon Code</h4>
+              <input type="hidden" id="couponEditId" value="">
+
+              <div class="form-grid-3">
+                <div class="form-group">
+                  <label for="couponCodeInput" class="form-label">Coupon Code *</label>
+                  <input type="text" id="couponCodeInput" class="form-input" placeholder="e.g. FESTIVE20" style="text-transform: uppercase;">
+                </div>
+
+                <div class="form-group">
+                  <label for="couponTypeInput" class="form-label">Discount Type *</label>
+                  <select id="couponTypeInput" class="form-input">
+                    <option value="percent">% Percentage Off</option>
+                    <option value="flat">₹ Flat Rupees Off</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="couponValueInput" class="form-label">Discount Value *</label>
+                  <input type="number" id="couponValueInput" class="form-input" placeholder="e.g. 20 (for 20%) or 150 (for ₹150)" min="1">
+                </div>
+              </div>
+
+              <div class="form-grid-3">
+                <div class="form-group">
+                  <label for="couponMinOrderInput" class="form-label">Minimum Order Amount (₹)</label>
+                  <input type="number" id="couponMinOrderInput" class="form-input" placeholder="e.g. 999 (0 for no min)" min="0">
+                </div>
+
+                <div class="form-group">
+                  <label for="couponExpiryInput" class="form-label">Expiry Date (optional)</label>
+                  <input type="date" id="couponExpiryInput" class="form-input">
+                </div>
+
+                <div class="form-group checkbox-toggle-group" style="padding-top: 1.8rem;">
+                  <label class="custom-checkbox-wrap">
+                    <input type="checkbox" id="couponEnabledInput" checked>
+                    <span class="custom-checkbox-mark"></span>
+                    <span class="custom-checkbox-text">Active (Enabled)</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="form-actions-row" style="margin-top: 1rem;">
+                <button type="button" id="btnAddCoupon" class="btn-admin-primary">+ Save Coupon Code</button>
+                <button type="button" id="btnCancelCouponEdit" class="btn-admin-secondary" style="display: none;">Cancel</button>
+              </div>
+            </div>
+
+            <!-- Existing Coupons List -->
+            <div class="coupons-table-wrap">
+              <h4 style="margin-bottom: 0.75rem; color: var(--admin-text-dark);">Active Coupons (<span id="couponCountBadge">0</span>)</h4>
+              <div id="couponsListContainer" class="coupons-list-container">
+                <!-- Rendered dynamically in admin.js -->
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Quantity Bundle Pricing -->
+          <div class="settings-box">
+            <div class="settings-box-header">
+              <span class="badge-tech">Fixed Total Deals</span>
+              <h3>Quantity Bundle Pricing (Multi-Kurta Deals)</h3>
+            </div>
+            <p class="settings-desc">
+              Customer jitni quantity chunega, uska total price fixed hoga. E.g. 1 kurta = normal price, 3 kurte = ₹999 total, 4 kurte = ₹1199 total.
+            </p>
+
+            <div class="form-group checkbox-toggle-group">
+              <label class="custom-checkbox-wrap">
+                <input type="checkbox" id="bundleEnabled" checked>
+                <span class="custom-checkbox-mark"></span>
+                <span class="custom-checkbox-text">Enable Quantity Bundle Pricing</span>
+              </label>
+            </div>
+
+            <!-- Bundle Settings Grid -->
+            <div class="form-grid-3" style="margin-bottom: 1.25rem;">
+              <!-- Scope -->
+              <div class="form-group">
+                <label for="bundleScope" class="form-label">Bundle Scope</label>
+                <select id="bundleScope" class="form-input">
+                  <option value="all" selected>Saare products par (All Catalog)</option>
+                  <option value="categories">Sirf chune hue categories par</option>
+                </select>
+                <span class="label-hint">Konsi categories ya products par bundle lagu hoga</span>
+              </div>
+
+              <!-- Intermediate Quantities Rule -->
+              <div class="form-group">
+                <label for="bundleIntermediateRule" class="form-label">Beech ki Quantity ka Rule (e.g. 5, 6)</label>
+                <select id="bundleIntermediateRule" class="form-input">
+                  <option value="largest_tier_per_piece" selected>Sabse bada tier + per-piece rate (Default)</option>
+                  <option value="closest_lower_plus_normal">Sabse paas ka chhota tier + normal price</option>
+                </select>
+                <span class="label-hint">Default: 999/3 = ₹333 per piece par baaki kurte</span>
+              </div>
+
+              <!-- Coupon Stacking Policy -->
+              <div class="form-group">
+                <label for="bundleCouponPolicy" class="form-label">Coupon & Bundle Policy</label>
+                <select id="bundleCouponPolicy" class="form-input">
+                  <option value="no_coupon" selected>Bundle ke saath coupon nahi (Default)</option>
+                  <option value="allow_both">Dono lag sakte hain (Bundle + Coupon)</option>
+                </select>
+                <span class="label-hint">Bundle offer active hone par coupon chalega ya nahi</span>
+              </div>
+            </div>
+
+            <!-- Category Scope Selector (hidden if scope is all) -->
+            <div id="bundleCategorySelectWrap" class="form-group" style="display: none; background: #FFFDF9; border: 1px dashed var(--admin-border); padding: 0.85rem; border-radius: 8px; margin-bottom: 1.25rem;">
+              <label class="form-label" style="margin-bottom: 0.5rem;">Select Categories for Bundle:</label>
+              <div class="scope-checkboxes" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <label class="custom-checkbox-wrap"><input type="checkbox" name="bundleCat" value="casual" checked><span class="custom-checkbox-mark"></span><span>Casual</span></label>
+                <label class="custom-checkbox-wrap"><input type="checkbox" name="bundleCat" value="short" checked><span class="custom-checkbox-mark"></span><span>Short</span></label>
+                <label class="custom-checkbox-wrap"><input type="checkbox" name="bundleCat" value="embroidered" checked><span class="custom-checkbox-mark"></span><span>Embroidered</span></label>
+                <label class="custom-checkbox-wrap"><input type="checkbox" name="bundleCat" value="festive" checked><span class="custom-checkbox-mark"></span><span>Festive</span></label>
+                <label class="custom-checkbox-wrap"><input type="checkbox" name="bundleCat" value="wedding" checked><span class="custom-checkbox-mark"></span><span>Wedding</span></label>
+              </div>
+            </div>
+
+            <!-- Tier Editor Box -->
+            <div class="bundle-tier-editor" style="background: rgba(201, 162, 75, 0.08); border: 1.5px solid var(--admin-border); border-radius: 8px; padding: 1.25rem; margin-bottom: 1.5rem;">
+              <h4 id="tierEditorTitle" style="margin-top: 0; margin-bottom: 1rem; color: var(--admin-maroon);">+ Add New Bundle Tier</h4>
+              <input type="hidden" id="tierEditId" value="">
+
+              <div class="form-grid-3">
+                <div class="form-group">
+                  <label for="tierQtyInput" class="form-label">Kurta Quantity (N) *</label>
+                  <input type="number" id="tierQtyInput" class="form-input" placeholder="e.g. 3" min="2" value="3">
+                  <span class="label-hint">Kitne kurte lene par offer milega</span>
+                </div>
+
+                <div class="form-group">
+                  <label for="tierPriceInput" class="form-label">Total Bundle Price (₹) *</label>
+                  <input type="number" id="tierPriceInput" class="form-input" placeholder="e.g. 999" min="1" value="999">
+                  <span class="label-hint">N kurton ka total fixed price</span>
+                </div>
+
+                <div class="form-group" style="padding-top: 1.8rem;">
+                  <button type="button" id="btnAddTier" class="btn-admin-primary" style="width: 100%;">+ Save Bundle Tier</button>
+                  <button type="button" id="btnCancelTierEdit" class="btn-admin-secondary" style="display: none; margin-top: 0.5rem; width: 100%;">Cancel Edit</button>
+                </div>
+              </div>
+
+              <!-- Warning Indicator (Requirement 5) -->
+              <div id="tierSavingWarning" class="tier-warning-msg" style="display: none; margin-top: 0.75rem; padding: 0.5rem 0.75rem; background: #FEF2F2; border: 1px solid #F87171; border-radius: 6px; color: #991B1B; font-size: 0.82rem; font-weight: 600;">
+                ⚠️ Is tier mein koi bachat nahi hai
+              </div>
+            </div>
+
+            <!-- Existing Tiers List -->
+            <div class="bundle-tiers-wrap">
+              <h4 style="margin-bottom: 0.75rem; color: var(--admin-text-dark);">Active Bundle Tiers (<span id="bundleTiersCountBadge">0</span>)</h4>
+              <div id="bundleTiersListContainer" class="bundle-tiers-list-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem;">
+                <!-- Rendered dynamically by admin.js -->
+              </div>
+            </div>
+
+          </div>
+
+          <!-- 4. Free Delivery -->
+          <div class="settings-box">
+            <div class="settings-box-header">
+              <span class="badge-tech">Shipping Policy</span>
+              <h3>Free Delivery Threshold</h3>
+            </div>
+            <p class="settings-desc">
+              Set minimum order value for free delivery. Enter 0 to offer free delivery on all orders or disable the policy.
+            </p>
+
+            <div class="form-grid-2">
+              <div class="form-group checkbox-toggle-group">
+                <label class="custom-checkbox-wrap">
+                  <input type="checkbox" id="offerFreeDeliveryEnabled" checked>
+                  <span class="custom-checkbox-mark"></span>
+                  <span class="custom-checkbox-text">Enable Free Delivery Offer</span>
+                </label>
+              </div>
+
+              <div class="form-group">
+                <label for="offerFreeDeliveryMin" class="form-label">Minimum Order Amount for Free Delivery (₹)</label>
+                <input type="number" id="offerFreeDeliveryMin" class="form-input" placeholder="e.g. 1499 (0 for free always)" min="0" value="1499">
+              </div>
+            </div>
+          </div>
+
+          <!-- 5. Festival Offer Popup Modal -->
+          <div class="settings-box">
+            <div class="settings-box-header">
+              <span class="badge-tech">Customer Engagement</span>
+              <h3>Festival Special Popup Modal</h3>
+            </div>
+            <p class="settings-desc">
+              High-impact popup shown once to visiting customers. Once closed, it will not bother the customer again on that device unless you update the popup content!
+            </p>
+
+            <div class="form-group checkbox-toggle-group">
+              <label class="custom-checkbox-wrap">
+                <input type="checkbox" id="offerPopupEnabled">
+                <span class="custom-checkbox-mark"></span>
+                <span class="custom-checkbox-text">Enable Festival Popup</span>
+              </label>
+            </div>
+
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label for="offerPopupHeading" class="form-label">Popup Heading</label>
+                <input type="text" id="offerPopupHeading" class="form-input" placeholder="e.g. ✨ Festive Grand Celebration ✨">
+              </div>
+
+              <div class="form-group">
+                <label for="offerPopupCtaText" class="form-label">CTA Button Text</label>
+                <input type="text" id="offerPopupCtaText" class="form-input" placeholder="e.g. Shop Festive Kurtas">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="offerPopupText" class="form-label">Popup Message / Details</label>
+              <textarea id="offerPopupText" rows="2" class="form-input" placeholder="e.g. Get flat 20% OFF on all wedding & festive kurtas. Use code FESTIVE20!"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Popup Banner Image (optional, WebP auto compress)</label>
+              <div class="image-upload-row">
+                <input type="file" id="offerPopupFileInput" accept="image/*" class="admin-file-input">
+                <input type="url" id="offerPopupImageUrl" class="form-input" placeholder="Or paste public image URL...">
+              </div>
+              <div id="offerPopupImgPreviewWrap" style="margin-top: 0.5rem; display: none;">
+                <img id="offerPopupImgPreview" src="" alt="Popup Preview" style="max-height: 120px; border-radius: 6px; border: 1px solid var(--admin-border);">
+                <button type="button" id="btnRemovePopupImg" class="btn-admin-danger" style="margin-left: 0.5rem; padding: 0.2rem 0.6rem; font-size: 0.8rem;">Remove Image</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Save Button -->
+          <div class="form-actions-row" style="margin-top: 2rem;">
+            <button type="button" id="btnSaveOffersBottom" class="btn-admin-primary btn-large">💾 Save & Publish Offers to Cloud</button>
+          </div>
+
         </div>
       </section>
 

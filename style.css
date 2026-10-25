@@ -1923,3 +1923,563 @@ button, a {
   color: #FFFFFF;
 }
 
+/* ==========================================================================
+   OFFERS & PROMOTIONS SYSTEM (ManBhar Royal Ethnic Theme)
+   ========================================================================== */
+
+/* 1. TOP ANNOUNCEMENT BAR */
+.top-announcement-bar {
+  width: 100%;
+  position: relative;
+  z-index: 1001;
+  padding: 0.55rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+.top-announcement-bar.bar-maroon {
+  background: linear-gradient(90deg, #5E0B1B 0%, #420612 100%);
+  border-bottom: 1.5px solid var(--gold-primary);
+  color: #FFFDF9;
+}
+
+.top-announcement-bar.bar-gold {
+  background: linear-gradient(90deg, #B8860B 0%, #8C6200 100%);
+  border-bottom: 1.5px solid #E6C675;
+  color: #FFFFFF;
+}
+
+.top-announcement-bar.bar-green {
+  background: linear-gradient(90deg, #1E3A2F 0%, #0E281F 100%);
+  border-bottom: 1.5px solid var(--gold-primary);
+  color: #FFFDF9;
+}
+
+.announcement-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.announcement-content {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.announcement-icon {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.announcement-text {
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.announcement-cta-link {
+  color: var(--gold-light);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 700;
+  margin-left: 0.5rem;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+}
+
+.announcement-cta-link:hover {
+  color: #FFFFFF;
+}
+
+.announcement-timer-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(201, 162, 75, 0.4);
+}
+
+.announcement-timer-wrap .timer-label {
+  color: var(--gold-light);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.announcement-countdown-badge {
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #FFFFFF;
+  letter-spacing: 0.5px;
+}
+
+.announcement-close-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.announcement-close-btn:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+@media (max-width: 600px) {
+  .top-announcement-bar {
+    padding: 0.45rem 0.75rem;
+    font-size: 0.78rem;
+  }
+  .announcement-inner {
+    justify-content: center;
+    text-align: center;
+  }
+  .announcement-content {
+    justify-content: center;
+  }
+  .announcement-close-btn {
+    position: absolute;
+    right: 0.4rem;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+}
+
+/* 2. OFFERS FILTER PILL */
+.filter-pill-offers {
+  background: linear-gradient(135deg, #FFF5EB 0%, #FEE8D6 100%) !important;
+  color: #A32800 !important;
+  border-color: #F59E0B !important;
+  font-weight: 700 !important;
+}
+
+.filter-pill-offers.active {
+  background: linear-gradient(135deg, #B45309 0%, #78350F 100%) !important;
+  color: #FFFFFF !important;
+  border-color: #D97706 !important;
+  box-shadow: 0 4px 12px rgba(180, 83, 9, 0.3) !important;
+}
+
+/* 3. PRODUCT CARD OFFERS & DISCOUNT BADGES */
+.product-discount-pill {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: linear-gradient(135deg, #5E0B1B 0%, #8E1B31 100%);
+  color: #FFFDF9;
+  border: 1px solid var(--gold-light);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  box-shadow: 0 3px 10px rgba(94, 11, 27, 0.4);
+  z-index: 2;
+  text-transform: uppercase;
+}
+
+.product-flash-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: #FFF1F2;
+  border: 1px solid #FDA4AF;
+  color: #BE123C;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-top: 0.4rem;
+  margin-bottom: 0.2rem;
+}
+
+.flash-pulse-dot {
+  width: 6px;
+  height: 6px;
+  background-color: #E11D48;
+  border-radius: 50%;
+  animation: pulseFlash 1.5s infinite;
+}
+
+@keyframes pulseFlash {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.7); }
+  70% { transform: scale(1.15); box-shadow: 0 0 0 6px rgba(225, 29, 72, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(225, 29, 72, 0); }
+}
+
+.flash-timer-text {
+  font-family: monospace;
+  font-weight: 700;
+  color: #9F1239;
+}
+
+/* 4. COUPON CODE BOX ON PRODUCT CARD */
+.product-coupon-box {
+  margin-top: 0.65rem;
+  padding: 0.55rem;
+  background: var(--bg-cream-tint);
+  border: 1px dashed var(--gold-primary);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+}
+
+.coupon-input-group {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.coupon-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.78rem;
+  font-family: inherit;
+  text-transform: uppercase;
+  font-weight: 600;
+  border: 1px solid rgba(201, 162, 75, 0.5);
+  border-radius: 4px;
+  background: #FFFFFF;
+  color: var(--text-primary);
+}
+
+.coupon-input::placeholder {
+  text-transform: none;
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+}
+
+.coupon-input:focus {
+  outline: none;
+  border-color: var(--maroon-deep);
+  box-shadow: 0 0 0 2px rgba(94, 11, 27, 0.12);
+}
+
+.btn-apply-coupon {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--maroon-deep);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.btn-apply-coupon:hover {
+  background: var(--maroon-light);
+}
+
+.btn-apply-coupon:active {
+  transform: scale(0.97);
+}
+
+.coupon-feedback {
+  margin-top: 0.35rem;
+  font-size: 0.74rem;
+  line-height: 1.3;
+}
+
+.coupon-feedback.success {
+  color: #15803D;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.3rem;
+}
+
+.coupon-feedback.error {
+  color: #DC2626;
+  font-weight: 600;
+}
+
+.btn-remove-coupon {
+  background: transparent;
+  border: none;
+  color: #DC2626;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 0;
+}
+
+.price-disclaimer-note {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 0.35rem;
+  text-align: center;
+}
+
+/* 5. FESTIVAL OFFER POPUP MODAL */
+.festival-popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 15, 26, 0.75);
+  backdrop-filter: blur(4px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  animation: fadeInPopup 0.3s ease;
+}
+
+@keyframes fadeInPopup {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.festival-popup-card {
+  width: 100%;
+  max-width: 440px;
+  background: #FFFDF9;
+  border: 2px solid var(--gold-primary);
+  border-radius: 16px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35), 0 0 24px rgba(201, 162, 75, 0.2);
+  position: relative;
+  overflow: hidden;
+  animation: slideUpPopup 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpPopup {
+  from { transform: translateY(24px) scale(0.95); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.festival-popup-close-btn {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--gold-primary);
+  color: var(--maroon-deep);
+  font-size: 1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.2s ease;
+}
+
+.festival-popup-close-btn:hover {
+  background: var(--maroon-deep);
+  color: #FFFFFF;
+}
+
+.festival-popup-img-wrap {
+  width: 100%;
+  max-height: 220px;
+  overflow: hidden;
+  background: #F4ECE1;
+  border-bottom: 2px solid var(--gold-primary);
+}
+
+.festival-popup-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.festival-popup-body {
+  padding: 1.5rem 1.25rem 1.25rem;
+  text-align: center;
+}
+
+.festival-popup-eyebrow {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--gold-dark);
+  margin-bottom: 0.35rem;
+}
+
+.festival-popup-title {
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  color: var(--maroon-deep);
+  margin-bottom: 0.6rem;
+  line-height: 1.25;
+}
+
+.festival-popup-text {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-bottom: 1.2rem;
+}
+
+.festival-popup-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.btn-festival-cta {
+  display: inline-block;
+  background: linear-gradient(135deg, #5E0B1B 0%, #7E1528 100%);
+  color: #FFFFFF;
+  border: 1px solid var(--gold-primary);
+  padding: 0.75rem 1.5rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(94, 11, 27, 0.3);
+  transition: all 0.2s ease;
+}
+
+.btn-festival-cta:hover {
+  background: linear-gradient(135deg, #7E1528 0%, #420612 100%);
+  box-shadow: 0 6px 18px rgba(94, 11, 27, 0.4);
+  transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   QUANTITY BUNDLE PRICING STYLING
+   ========================================================================== */
+
+/* Teaser badge on product card */
+.bundle-offer-teaser {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  background: #FFFBEB;
+  border: 1px dashed #F59E0B;
+  border-radius: 6px;
+  padding: 0.3rem 0.55rem;
+  margin: 0.35rem 0;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #92400E;
+  line-height: 1.35;
+}
+
+.bundle-tier-chip {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.bundle-tier-chip.disabled-stock {
+  opacity: 0.45;
+  text-decoration: line-through;
+  filter: grayscale(1);
+}
+
+.bundle-tier-sep {
+  color: #D97706;
+  opacity: 0.6;
+}
+
+/* Dynamic Live Bundle Price Box */
+.product-bundle-price-box {
+  margin-top: 0.45rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  background: #F0FDF4;
+  border: 1px solid #BBF7D0;
+  font-size: 0.8rem;
+  color: #166534;
+  line-height: 1.4;
+  transition: all 0.25s ease;
+}
+
+.product-bundle-price-box.normal {
+  background: #FAF8F5;
+  border-color: rgba(201, 162, 75, 0.3);
+  color: var(--text-secondary);
+}
+
+.bundle-live-headline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.bundle-live-title {
+  font-weight: 800;
+  color: #15803D;
+  font-size: 0.88rem;
+}
+
+.product-bundle-price-box.normal .bundle-live-title {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.bundle-cut-price {
+  text-decoration: line-through;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  margin-right: 0.3rem;
+}
+
+.bundle-savings-badge {
+  display: inline-block;
+  background: #DCFCE7;
+  color: #15803D;
+  font-weight: 800;
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid #86EFAC;
+}
+
+/* Nudge to buy more for next tier */
+.bundle-nudge-note {
+  margin-top: 0.3rem;
+  font-size: 0.73rem;
+  color: #B45309;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  line-height: 1.3;
+}
+
+/* Free delivery unlocked badge */
+.bundle-free-delivery-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #047857;
+  font-weight: 700;
+  font-size: 0.72rem;
+  margin-top: 0.25rem;
+}
+
+
+

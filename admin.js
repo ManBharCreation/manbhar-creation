@@ -10,8 +10,74 @@ const STORAGE_KEYS = {
   SUPABASE_CFG: "manbhar_supabase_config",
   PRODUCTS: "manbhar_products",
   CATEGORIES: "manbhar_categories",
-  SITE_SETTINGS: "manbhar_site_settings"
+  SITE_SETTINGS: "manbhar_site_settings",
+  OFFERS: "manbhar_offers"
 };
+
+// Default Offers & Deals Settings
+const DEFAULT_OFFERS = {
+  announcement: {
+    enabled: true,
+    text: "🎉 Special Festive Offer: Flat 20% OFF on all Kurta Sets | Use Code: FESTIVE20",
+    bgColor: "maroon",
+    link: "#products"
+  },
+  countdown: {
+    enabled: false,
+    endTime: ""
+  },
+  coupons: [
+    {
+      id: "c_festive20",
+      code: "FESTIVE20",
+      type: "percent",
+      value: 20,
+      minOrder: 999,
+      expiry: "2026-12-31",
+      enabled: true
+    },
+    {
+      id: "c_kurta100",
+      code: "KURTA100",
+      type: "flat",
+      value: 100,
+      minOrder: 799,
+      expiry: "2026-12-31",
+      enabled: true
+    }
+  ],
+  bundles: {
+    enabled: true,
+    tiers: [
+      { id: "b_3", qty: 3, price: 999 },
+      { id: "b_4", qty: 4, price: 1199 }
+    ],
+    scope: "all",
+    scopeItems: [],
+    intermediateRule: "largest_tier_per_piece",
+    allowCouponWithBundle: false
+  },
+  combo: {
+    enabled: false,
+    buyQty: 2,
+    discountPercent: 15
+  },
+  free_delivery: {
+    enabled: true,
+    minAmount: 1499
+  },
+  popup: {
+    enabled: false,
+    version: "1",
+    heading: "✨ Festive Grand Celebration ✨",
+    text: "Get flat 20% OFF on premium handcrafted Men Kurtas. Use coupon code FESTIVE20 at checkout!",
+    image: "",
+    ctaText: "Shop Festive Kurtas",
+    ctaLink: "#products"
+  }
+};
+
+let currentOffers = JSON.parse(JSON.stringify(DEFAULT_OFFERS));
 
 // Detailed Error Message Formatter for Supabase Errors
 function formatSupabaseError(error, defaultContext = "Operation failed") {
@@ -429,7 +495,9 @@ async function persistProduct(productData) {
       sizes: productData.sizes || [],
       stock: productData.stock || {},
       is_out_of_stock: productData.is_out_of_stock !== undefined ? productData.is_out_of_stock : (productData.isOutOfStock || false),
-      description: productData.description || null
+      description: productData.description || null,
+      is_flash_sale: productData.is_flash_sale || false,
+      flash_sale_end: productData.flash_sale_end || null
     };
 
     try {
@@ -818,6 +886,14 @@ function initProductForm() {
 
   if (!form) return;
 
+  const flashSaleChk = document.getElementById("prodFlashSale");
+  const flashEndGroup = document.getElementById("prodFlashSaleEndGroup");
+  if (flashSaleChk && flashEndGroup) {
+    flashSaleChk.addEventListener("change", (e) => {
+      flashEndGroup.style.display = e.target.checked ? "block" : "none";
+    });
+  }
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -863,6 +939,10 @@ function initProductForm() {
     const saveBtn = document.getElementById("saveProductBtn");
     if (saveBtn) saveBtn.disabled = true;
 
+    const isFlashSale = document.getElementById("prodFlashSale")?.checked || false;
+    const flashSaleEndVal = document.getElementById("prodFlashSaleEnd")?.value || null;
+    const flashSaleEndIso = (isFlashSale && flashSaleEndVal) ? new Date(flashSaleEndVal).toISOString() : null;
+
     const prodId = editId || `kurta-${Date.now()}`;
     const productRecord = {
       id: prodId,
@@ -877,6 +957,8 @@ function initProductForm() {
       stock: stockMap,
       is_out_of_stock: isOutOfStock,
       description,
+      is_flash_sale: isFlashSale,
+      flash_sale_end: flashSaleEndIso,
       created_at: new Date().toISOString()
     };
 
@@ -911,6 +993,14 @@ function resetForm() {
   currentFormImages = [];
   renderPhotoPreviews();
 
+  // Reset flash sale inputs
+  const flashSaleChk = document.getElementById("prodFlashSale");
+  if (flashSaleChk) flashSaleChk.checked = false;
+  const flashSaleEnd = document.getElementById("prodFlashSaleEnd");
+  if (flashSaleEnd) flashSaleEnd.value = "";
+  const flashEndGroup = document.getElementById("prodFlashSaleEndGroup");
+  if (flashEndGroup) flashEndGroup.style.display = "none";
+
   // Reset sizes checkboxes and default quantities
   const defaults = { S: 5, M: 10, L: 8, XL: 4, XXL: 2 };
   Object.keys(defaults).forEach(sz => {
@@ -932,6 +1022,25 @@ window.editProduct = function(productId) {
   document.getElementById("prodOriginalPrice").value = p.originalPrice || p.original_price || "";
   document.getElementById("prodBadge").value = p.badge || "";
   document.getElementById("prodDesc").value = p.description || "";
+
+  // Flash Sale fields
+  const flashSaleChk = document.getElementById("prodFlashSale");
+  const flashEndGroup = document.getElementById("prodFlashSaleEndGroup");
+  const flashSaleEnd = document.getElementById("prodFlashSaleEnd");
+  const isFlash = p.is_flash_sale || p.isFlashSale || false;
+
+  if (flashSaleChk) flashSaleChk.checked = isFlash;
+  if (flashEndGroup) flashEndGroup.style.display = isFlash ? "block" : "none";
+  if (flashSaleEnd) {
+    const rawDate = p.flash_sale_end || p.flashSaleEnd;
+    if (rawDate) {
+      const d = new Date(rawDate);
+      const pad = n => String(n).padStart(2, "0");
+      flashSaleEnd.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    } else {
+      flashSaleEnd.value = "";
+    }
+  }
 
   // Images
   currentFormImages = p.images && p.images.length > 0 ? [...p.images] : [p.image];
@@ -1045,7 +1154,7 @@ function renderProductsList() {
           </div>
           <div class="prod-meta">
             <h4 class="prod-meta-title">${p.name}</h4>
-            <span class="prod-meta-cat">${p.category} ${p.badge ? `• <span style="color:var(--admin-maroon); font-weight:bold;">${p.badge}</span>` : ""}</span>
+            <span class="prod-meta-cat">${p.category} ${p.badge ? `• <span style="color:var(--admin-maroon); font-weight:bold;">${p.badge}</span>` : ""} ${(p.is_flash_sale || p.isFlashSale) ? `• <span style="color:#BE123C; font-weight:bold; background:#FFF1F2; padding:1px 6px; border-radius:4px; border:1px solid #FDA4AF; font-size:0.75rem;">⚡ Flash Sale</span>` : ""}</span>
             <div class="prod-meta-price">
               <span>₹${p.price}</span>
               ${originalPrice ? `<span class="prod-meta-original">₹${originalPrice}</span>` : ""}
@@ -1902,16 +2011,727 @@ function initHeroEditor() {
 
 /**
  * ----------------------------------------------------------------------------
+ * 7. OFFERS & DEALS CONTROLLER
+ * ----------------------------------------------------------------------------
+ */
+async function fetchOffers() {
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from("offers")
+        .select("*")
+        .eq("id", "current")
+        .single();
+      if (!error && data) {
+        currentOffers = deepMerge(DEFAULT_OFFERS, data);
+        localStorage.setItem(STORAGE_KEYS.OFFERS, JSON.stringify(currentOffers));
+        return currentOffers;
+      }
+    } catch (err) {
+      console.warn("Supabase fetch offers failed, using local:", err);
+    }
+  }
+
+  const raw = localStorage.getItem(STORAGE_KEYS.OFFERS);
+  if (raw) {
+    try {
+      currentOffers = deepMerge(DEFAULT_OFFERS, JSON.parse(raw));
+    } catch (e) {
+      currentOffers = JSON.parse(JSON.stringify(DEFAULT_OFFERS));
+    }
+  } else {
+    currentOffers = JSON.parse(JSON.stringify(DEFAULT_OFFERS));
+  }
+  return currentOffers;
+}
+
+async function persistOffers(offersObj) {
+  currentOffers = offersObj;
+  localStorage.setItem(STORAGE_KEYS.OFFERS, JSON.stringify(offersObj));
+
+  if (supabaseClient) {
+    const isAuth = await ensureAuthenticatedSession();
+    if (!isAuth) {
+      alert("Please login with your admin credentials to save offers to the cloud database.");
+      return;
+    }
+
+    try {
+      const payload = {
+        id: "current",
+        announcement: offersObj.announcement || {},
+        countdown: offersObj.countdown || {},
+        coupons: offersObj.coupons || [],
+        bundles: offersObj.bundles || DEFAULT_OFFERS.bundles,
+        combo: offersObj.combo || { enabled: false },
+        free_delivery: offersObj.free_delivery || {},
+        popup: offersObj.popup || {},
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabaseClient
+        .from("offers")
+        .upsert(payload);
+
+      if (error) throw error;
+      showToast("✅ Offers & coupons saved & published to cloud!");
+    } catch (err) {
+      console.error("Supabase offers upsert failed:", err);
+      alert(formatSupabaseError(err, "Failed to save offers to cloud database"));
+    }
+  } else {
+    showToast("Offers saved to local storage.");
+  }
+}
+
+function renderCouponsList() {
+  const container = document.getElementById("couponsListContainer");
+  const countBadge = document.getElementById("couponCountBadge");
+  if (!container) return;
+
+  const coupons = currentOffers.coupons || [];
+  if (countBadge) countBadge.textContent = coupons.length;
+
+  if (coupons.length === 0) {
+    container.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 2rem 1rem; color: var(--admin-text-muted); background: #fff; border-radius: 8px; border: 1px dashed var(--admin-border);">
+        <p style="font-size: 0.95rem; margin-bottom: 0.25rem;">No coupons added yet.</p>
+        <span style="font-size: 0.8rem;">Fill the form above and click '+ Save Coupon Code' to create your first coupon!</span>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = coupons.map(c => {
+    const isExpired = c.expiry && new Date(c.expiry).getTime() < Date.now();
+    const statusText = !c.enabled ? "Inactive" : isExpired ? "Expired" : "Active";
+    const statusClass = (!c.enabled || isExpired) ? "inactive" : "active";
+    const discountText = c.type === "percent" ? `${c.value}% OFF` : `₹${c.value} FLAT OFF`;
+
+    return `
+      <div class="coupon-item-card" id="coupon-card-${c.id}">
+        <div>
+          <div class="coupon-item-header">
+            <span class="coupon-code-badge">${escapeHtml(c.code)}</span>
+            <span class="coupon-status-badge ${statusClass}">${statusText}</span>
+          </div>
+          <div class="coupon-discount-highlight">${discountText}</div>
+          <div class="coupon-item-details">
+            <div>Min Order: <strong>₹${c.minOrder || 0}</strong></div>
+            <div>Expiry: <strong>${c.expiry || "No Expiry"}</strong></div>
+          </div>
+        </div>
+        <div class="coupon-item-actions">
+          <button type="button" class="btn-coupon-action btn-coupon-edit" onclick="editCouponCode('${c.id}')">✏️ Edit</button>
+          <button type="button" class="btn-coupon-action btn-coupon-delete" onclick="deleteCouponCode('${c.id}')">🗑️ Delete</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+window.editCouponCode = function(couponId) {
+  const coupons = currentOffers.coupons || [];
+  const c = coupons.find(item => item.id === couponId);
+  if (!c) return;
+
+  document.getElementById("couponEditId").value = c.id;
+  document.getElementById("couponCodeInput").value = c.code;
+  document.getElementById("couponTypeInput").value = c.type;
+  document.getElementById("couponValueInput").value = c.value;
+  document.getElementById("couponMinOrderInput").value = c.minOrder || 0;
+  document.getElementById("couponExpiryInput").value = c.expiry || "";
+  document.getElementById("couponEnabledInput").checked = c.enabled !== false;
+
+  document.getElementById("couponEditorTitle").textContent = `✏️ Edit Coupon: ${c.code}`;
+  document.getElementById("btnAddCoupon").textContent = "Update Coupon";
+  document.getElementById("btnCancelCouponEdit").style.display = "inline-flex";
+
+  const editorBox = document.querySelector(".coupon-editor-box");
+  if (editorBox) editorBox.scrollIntoView({ behavior: "smooth" });
+};
+
+window.deleteCouponCode = function(couponId) {
+  const coupons = currentOffers.coupons || [];
+  const c = coupons.find(item => item.id === couponId);
+  if (!c) return;
+
+  if (confirm(`Are you sure you want to delete coupon code "${c.code}"?`)) {
+    currentOffers.coupons = coupons.filter(item => item.id !== couponId);
+    renderCouponsList();
+    persistOffers(currentOffers);
+    showToast(`Coupon "${c.code}" deleted.`);
+  }
+};
+
+/**
+ * Live warning calculation for Bundle Tier editor (Requirement 5)
+ */
+function checkTierSavingWarning() {
+  const qtyInput = document.getElementById("tierQtyInput");
+  const priceInput = document.getElementById("tierPriceInput");
+  const warningEl = document.getElementById("tierSavingWarning");
+  if (!qtyInput || !priceInput || !warningEl) return;
+
+  const qty = parseInt(qtyInput.value, 10);
+  const price = parseInt(priceInput.value, 10);
+
+  if (!qty || !price || qty <= 0 || price <= 0) {
+    warningEl.style.display = "none";
+    return;
+  }
+
+  // Calculate against minimum product price in shop
+  const products = SHOP_CONFIG.products || [];
+  const minPrice = products.length > 0 ? Math.min(...products.map(p => p.price)) : 899;
+  const normalTotal = qty * minPrice;
+
+  if (price >= normalTotal) {
+    warningEl.textContent = `⚠️ Is tier mein koi bachat nahi hai (Store min price ₹${minPrice} × ${qty} = ₹${normalTotal} vs Tier ₹${price})`;
+    warningEl.style.display = "block";
+  } else {
+    warningEl.style.display = "none";
+  }
+}
+
+/**
+ * Render active bundle tiers list (Requirement 2)
+ */
+function renderBundleTiersList() {
+  const container = document.getElementById("bundleTiersListContainer");
+  const countBadge = document.getElementById("bundleTiersCountBadge");
+  if (!container) return;
+
+  if (!currentOffers.bundles) {
+    currentOffers.bundles = JSON.parse(JSON.stringify(DEFAULT_OFFERS.bundles));
+  }
+  const tiers = (currentOffers.bundles.tiers || []).slice().sort((a, b) => a.qty - b.qty);
+  if (countBadge) countBadge.textContent = tiers.length;
+
+  if (tiers.length === 0) {
+    container.innerHTML = `
+      <div style="grid-column: 1 / -1; padding: 1.25rem; text-align: center; color: var(--admin-text-muted); background: #FAF9F6; border-radius: 8px; border: 1px dashed var(--admin-border);">
+        Koi bundle tier add nahi hai. Upar form se naya tier jodein (e.g. 3 kurte = ₹999).
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = tiers.map(tier => {
+    const perPiece = Math.round(tier.price / tier.qty);
+    return `
+      <div class="bundle-tier-card" id="tier-card-${tier.id}">
+        <div class="bundle-tier-info">
+          <div class="bundle-tier-header">
+            <span class="bundle-qty-badge">${tier.qty} Kurte</span>
+            <span class="bundle-price-text">₹${tier.price}</span>
+          </div>
+          <div class="bundle-per-piece">≈ ₹${perPiece} / kurta</div>
+        </div>
+        <div class="bundle-tier-actions">
+          <button type="button" class="btn-icon btn-edit-tier" onclick="window.editBundleTier('${tier.id}')" title="Edit Tier">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+          </button>
+          <button type="button" class="btn-icon btn-delete-tier" onclick="window.deleteBundleTier('${tier.id}')" title="Delete Tier">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+window.editBundleTier = function(tierId) {
+  if (!currentOffers.bundles) return;
+  const tiers = currentOffers.bundles.tiers || [];
+  const tier = tiers.find(t => t.id === tierId);
+  if (!tier) return;
+
+  const qtyInput = document.getElementById("tierQtyInput");
+  const priceInput = document.getElementById("tierPriceInput");
+  const editId = document.getElementById("tierEditId");
+  const title = document.getElementById("tierEditorTitle");
+  const btnAdd = document.getElementById("btnAddTier");
+  const btnCancel = document.getElementById("btnCancelTierEdit");
+
+  if (qtyInput) qtyInput.value = tier.qty;
+  if (priceInput) priceInput.value = tier.price;
+  if (editId) editId.value = tier.id;
+  if (title) title.textContent = `✏️ Edit Bundle Tier (${tier.qty} Kurte)`;
+  if (btnAdd) btnAdd.textContent = "Update Tier";
+  if (btnCancel) btnCancel.style.display = "inline-block";
+
+  checkTierSavingWarning();
+};
+
+window.deleteBundleTier = function(tierId) {
+  if (!currentOffers.bundles) return;
+  const tiers = currentOffers.bundles.tiers || [];
+  const tier = tiers.find(t => t.id === tierId);
+  if (!tier) return;
+
+  if (confirm(`Kya aap ${tier.qty} kurte = ₹${tier.price} wala bundle tier delete karna chahte hain?`)) {
+    currentOffers.bundles.tiers = tiers.filter(t => t.id !== tierId);
+    renderBundleTiersList();
+    persistOffers(currentOffers);
+    showToast(`Tier (${tier.qty} kurte) deleted.`);
+  }
+};
+
+function populateOffersInputs() {
+  const ann = currentOffers.announcement || {};
+  const cd = currentOffers.countdown || {};
+  const bundles = currentOffers.bundles || DEFAULT_OFFERS.bundles;
+  const freeDel = currentOffers.free_delivery || {};
+  const popup = currentOffers.popup || {};
+
+  // 1. Announcement Bar
+  const annEnabled = document.getElementById("offerAnnouncementEnabled");
+  if (annEnabled) annEnabled.checked = ann.enabled !== false;
+
+  const annText = document.getElementById("offerAnnouncementText");
+  if (annText) annText.value = ann.text || "";
+
+  const annLink = document.getElementById("offerAnnouncementLink");
+  if (annLink) annLink.value = ann.link || "";
+
+  const colorRadios = document.querySelectorAll('input[name="offerBgColor"]');
+  colorRadios.forEach(r => {
+    r.checked = r.value === (ann.bgColor || "maroon");
+  });
+
+  // Countdown
+  const cdEnabled = document.getElementById("offerCountdownEnabled");
+  const cdGroup = document.getElementById("offerCountdownGroup");
+  const cdEnd = document.getElementById("offerCountdownEnd");
+
+  if (cdEnabled) cdEnabled.checked = cd.enabled === true;
+  if (cdGroup) cdGroup.style.display = cd.enabled ? "block" : "none";
+  if (cdEnd && cd.endTime) {
+    const d = new Date(cd.endTime);
+    if (!isNaN(d.getTime())) {
+      const pad = n => String(n).padStart(2, "0");
+      cdEnd.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    } else {
+      cdEnd.value = cd.endTime;
+    }
+  }
+
+  // 2. Coupons List
+  renderCouponsList();
+
+  // 3. Quantity Bundle Pricing (Requirement 1-6)
+  const bundleEnabled = document.getElementById("bundleEnabled");
+  if (bundleEnabled) bundleEnabled.checked = bundles.enabled !== false;
+
+  const bundleScope = document.getElementById("bundleScope");
+  const bundleCatWrap = document.getElementById("bundleCategorySelectWrap");
+  if (bundleScope) {
+    bundleScope.value = bundles.scope || "all";
+    if (bundleCatWrap) {
+      bundleCatWrap.style.display = bundles.scope === "categories" ? "block" : "none";
+    }
+  }
+
+  const selectedScopeCats = bundles.scopeItems || [];
+  document.querySelectorAll('input[name="bundleCat"]').forEach(cb => {
+    cb.checked = selectedScopeCats.length === 0 || selectedScopeCats.includes(cb.value);
+  });
+
+  const ruleSelect = document.getElementById("bundleIntermediateRule");
+  if (ruleSelect) ruleSelect.value = bundles.intermediateRule || "largest_tier_per_piece";
+
+  const couponPolicySelect = document.getElementById("bundleCouponPolicy");
+  if (couponPolicySelect) {
+    couponPolicySelect.value = bundles.allowCouponWithBundle ? "allow_both" : "no_coupon";
+  }
+
+  renderBundleTiersList();
+  checkTierSavingWarning();
+
+  // 4. Free Delivery
+  const freeDelEnabled = document.getElementById("offerFreeDeliveryEnabled");
+  if (freeDelEnabled) freeDelEnabled.checked = freeDel.enabled !== false;
+
+  const freeDelMin = document.getElementById("offerFreeDeliveryMin");
+  if (freeDelMin) freeDelMin.value = freeDel.minAmount !== undefined ? freeDel.minAmount : 1499;
+
+  // 5. Festival Popup
+  const popupEnabled = document.getElementById("offerPopupEnabled");
+  if (popupEnabled) popupEnabled.checked = popup.enabled === true;
+
+  const popupHead = document.getElementById("offerPopupHeading");
+  if (popupHead) popupHead.value = popup.heading || "";
+
+  const popupText = document.getElementById("offerPopupText");
+  if (popupText) popupText.value = popup.text || "";
+
+  const popupUrl = document.getElementById("offerPopupImageUrl");
+  if (popupUrl) popupUrl.value = popup.image || "";
+
+  const popupCta = document.getElementById("offerPopupCtaText");
+  if (popupCta) popupCta.value = popup.ctaText || "Shop Festive Kurtas";
+
+  const imgPrevWrap = document.getElementById("offerPopupImgPreviewWrap");
+  const imgPrev = document.getElementById("offerPopupImgPreview");
+  if (popup.image && popup.image.trim()) {
+    if (imgPrev) imgPrev.src = popup.image.trim();
+    if (imgPrevWrap) imgPrevWrap.style.display = "block";
+  } else {
+    if (imgPrevWrap) imgPrevWrap.style.display = "none";
+  }
+}
+
+function initOffersTab() {
+  // Countdown toggle
+  const cdEnabled = document.getElementById("offerCountdownEnabled");
+  const cdGroup = document.getElementById("offerCountdownGroup");
+  if (cdEnabled && cdGroup) {
+    cdEnabled.addEventListener("change", (e) => {
+      cdGroup.style.display = e.target.checked ? "block" : "none";
+    });
+  }
+
+  // Add / Edit Coupon
+  const btnAddCoupon = document.getElementById("btnAddCoupon");
+  const btnCancelCoupon = document.getElementById("btnCancelCouponEdit");
+
+  if (btnAddCoupon) {
+    btnAddCoupon.addEventListener("click", () => {
+      const editId = document.getElementById("couponEditId").value;
+      const code = (document.getElementById("couponCodeInput").value || "").trim().toUpperCase();
+      const type = document.getElementById("couponTypeInput").value;
+      const valInput = document.getElementById("couponValueInput").value;
+      const value = parseFloat(valInput) || 0;
+      const minOrderInput = document.getElementById("couponMinOrderInput").value;
+      const minOrder = parseFloat(minOrderInput) || 0;
+      const expiry = document.getElementById("couponExpiryInput").value || "";
+      const enabled = document.getElementById("couponEnabledInput").checked;
+
+      if (!code) {
+        alert("Please enter a coupon code (e.g. FESTIVE20)");
+        return;
+      }
+      if (value <= 0) {
+        alert("Please enter a valid discount value greater than 0");
+        return;
+      }
+
+      if (!currentOffers.coupons) currentOffers.coupons = [];
+
+      if (editId) {
+        const idx = currentOffers.coupons.findIndex(c => c.id === editId);
+        if (idx >= 0) {
+          currentOffers.coupons[idx] = {
+            id: editId,
+            code,
+            type,
+            value,
+            minOrder,
+            expiry,
+            enabled
+          };
+          showToast(`Coupon "${code}" updated!`);
+        }
+      } else {
+        // Check duplicate code
+        const exists = currentOffers.coupons.find(c => c.code === code);
+        if (exists) {
+          alert(`Coupon code "${code}" already exists.`);
+          return;
+        }
+
+        const newCoupon = {
+          id: `c_${Date.now()}`,
+          code,
+          type,
+          value,
+          minOrder,
+          expiry,
+          enabled
+        };
+        currentOffers.coupons.push(newCoupon);
+        showToast(`New coupon "${code}" added!`);
+      }
+
+      // Reset coupon editor form
+      document.getElementById("couponEditId").value = "";
+      document.getElementById("couponCodeInput").value = "";
+      document.getElementById("couponValueInput").value = "";
+      document.getElementById("couponMinOrderInput").value = "";
+      document.getElementById("couponExpiryInput").value = "";
+      document.getElementById("couponEnabledInput").checked = true;
+      document.getElementById("couponEditorTitle").textContent = "+ Add New Coupon Code";
+      btnAddCoupon.textContent = "+ Save Coupon Code";
+      if (btnCancelCoupon) btnCancelCoupon.style.display = "none";
+
+      renderCouponsList();
+      persistOffers(currentOffers);
+    });
+  }
+
+  if (btnCancelCoupon) {
+    btnCancelCoupon.addEventListener("click", () => {
+      document.getElementById("couponEditId").value = "";
+      document.getElementById("couponCodeInput").value = "";
+      document.getElementById("couponValueInput").value = "";
+      document.getElementById("couponMinOrderInput").value = "";
+      document.getElementById("couponExpiryInput").value = "";
+      document.getElementById("couponEnabledInput").checked = true;
+      document.getElementById("couponEditorTitle").textContent = "+ Add New Coupon Code";
+      if (btnAddCoupon) btnAddCoupon.textContent = "+ Save Coupon Code";
+      btnCancelCoupon.style.display = "none";
+    });
+  }
+
+  // Popup Image Upload with WebP compression
+  const popupFileInput = document.getElementById("offerPopupFileInput");
+  const popupImageUrl = document.getElementById("offerPopupImageUrl");
+  const imgPrevWrap = document.getElementById("offerPopupImgPreviewWrap");
+  const imgPrev = document.getElementById("offerPopupImgPreview");
+  const btnRemoveImg = document.getElementById("btnRemovePopupImg");
+
+  if (popupFileInput) {
+    popupFileInput.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const isAuth = await ensureAuthenticatedSession();
+      if (!isAuth) return;
+
+      try {
+        showToast("Compressing popup image to WebP...");
+        const webpBlob = await compressImageToWebP(file, 900, 0.85);
+
+        if (supabaseClient) {
+          showToast("Uploading to Supabase Storage...");
+          const fileName = `offers/popup_${Date.now()}.webp`;
+          const { data, error } = await supabaseClient.storage
+            .from("product-images")
+            .upload(fileName, webpBlob, { contentType: "image/webp", upsert: true });
+
+          if (error) throw error;
+
+          const { data: publicUrlData } = supabaseClient.storage
+            .from("product-images")
+            .getPublicUrl(fileName);
+
+          const finalUrl = publicUrlData.publicUrl;
+          if (popupImageUrl) popupImageUrl.value = finalUrl;
+          if (imgPrev) imgPrev.src = finalUrl;
+          if (imgPrevWrap) imgPrevWrap.style.display = "block";
+          if (!currentOffers.popup) currentOffers.popup = {};
+          currentOffers.popup.image = finalUrl;
+          showToast("Popup image uploaded successfully!");
+        }
+      } catch (err) {
+        console.error("Popup upload failed:", err);
+        alert(formatSupabaseError(err, "Failed to upload popup image"));
+      }
+    });
+  }
+
+  if (btnRemoveImg) {
+    btnRemoveImg.addEventListener("click", () => {
+      if (!currentOffers.popup) currentOffers.popup = {};
+      currentOffers.popup.image = "";
+      if (popupImageUrl) popupImageUrl.value = "";
+      if (popupFileInput) popupFileInput.value = "";
+      if (imgPrevWrap) imgPrevWrap.style.display = "none";
+      showToast("Popup image removed.");
+    });
+  }
+
+  // Bundle Scope Toggle (All vs Categories)
+  const bundleScopeEl = document.getElementById("bundleScope");
+  const bundleCatWrap = document.getElementById("bundleCategorySelectWrap");
+  if (bundleScopeEl && bundleCatWrap) {
+    bundleScopeEl.addEventListener("change", (e) => {
+      bundleCatWrap.style.display = e.target.value === "categories" ? "block" : "none";
+    });
+  }
+
+  // Bundle Tier Live Warning Listeners
+  const tierQtyInput = document.getElementById("tierQtyInput");
+  const tierPriceInput = document.getElementById("tierPriceInput");
+  if (tierQtyInput) {
+    tierQtyInput.addEventListener("input", checkTierSavingWarning);
+    tierQtyInput.addEventListener("change", checkTierSavingWarning);
+  }
+  if (tierPriceInput) {
+    tierPriceInput.addEventListener("input", checkTierSavingWarning);
+    tierPriceInput.addEventListener("change", checkTierSavingWarning);
+  }
+
+  // Add / Edit Bundle Tier Handler (Requirement 2 & 5)
+  const btnAddTier = document.getElementById("btnAddTier");
+  const btnCancelTierEdit = document.getElementById("btnCancelTierEdit");
+
+  if (btnAddTier) {
+    btnAddTier.addEventListener("click", () => {
+      const editId = (document.getElementById("tierEditId")?.value || "").trim();
+      const qty = parseInt(document.getElementById("tierQtyInput")?.value, 10);
+      const price = parseInt(document.getElementById("tierPriceInput")?.value, 10);
+
+      if (!qty || qty < 2) {
+        alert("Please enter a valid quantity of at least 2 kurte.");
+        return;
+      }
+      if (!price || price < 1) {
+        alert("Please enter a valid total bundle price.");
+        return;
+      }
+
+      if (!currentOffers.bundles) {
+        currentOffers.bundles = JSON.parse(JSON.stringify(DEFAULT_OFFERS.bundles));
+      }
+      if (!Array.isArray(currentOffers.bundles.tiers)) {
+        currentOffers.bundles.tiers = [];
+      }
+
+      if (editId) {
+        const idx = currentOffers.bundles.tiers.findIndex(t => t.id === editId);
+        if (idx >= 0) {
+          currentOffers.bundles.tiers[idx] = { id: editId, qty, price };
+          showToast(`Bundle tier (${qty} kurte = ₹${price}) updated!`);
+        }
+      } else {
+        const exists = currentOffers.bundles.tiers.find(t => t.qty === qty);
+        if (exists) {
+          if (!confirm(`${qty} kurton ka tier pehle se maujood hai (₹${exists.price}). Kya aap use ₹${price} se update karna chahte hain?`)) {
+            return;
+          }
+          exists.price = price;
+          showToast(`Tier (${qty} kurte) updated to ₹${price}!`);
+        } else {
+          currentOffers.bundles.tiers.push({
+            id: `b_${qty}_${Date.now()}`,
+            qty,
+            price
+          });
+          showToast(`New bundle tier (${qty} kurte = ₹${price}) added!`);
+        }
+      }
+
+      // Reset tier form
+      const editIdEl = document.getElementById("tierEditId");
+      if (editIdEl) editIdEl.value = "";
+      const titleEl = document.getElementById("tierEditorTitle");
+      if (titleEl) titleEl.textContent = "+ Add New Bundle Tier";
+      btnAddTier.textContent = "+ Save Bundle Tier";
+      if (btnCancelTierEdit) btnCancelTierEdit.style.display = "none";
+
+      renderBundleTiersList();
+      checkTierSavingWarning();
+      persistOffers(currentOffers);
+    });
+  }
+
+  if (btnCancelTierEdit) {
+    btnCancelTierEdit.addEventListener("click", () => {
+      const editIdEl = document.getElementById("tierEditId");
+      if (editIdEl) editIdEl.value = "";
+      const titleEl = document.getElementById("tierEditorTitle");
+      if (titleEl) titleEl.textContent = "+ Add New Bundle Tier";
+      if (btnAddTier) btnAddTier.textContent = "+ Save Bundle Tier";
+      btnCancelTierEdit.style.display = "none";
+      checkTierSavingWarning();
+    });
+  }
+
+  // Collect and Save All Offers Handler
+  async function handleSaveOffers() {
+    const annEnabled = document.getElementById("offerAnnouncementEnabled")?.checked ?? true;
+    const annText = (document.getElementById("offerAnnouncementText")?.value || "").trim();
+    const annLink = (document.getElementById("offerAnnouncementLink")?.value || "").trim();
+    const bgRadio = document.querySelector('input[name="offerBgColor"]:checked');
+    const bgColor = bgRadio ? bgRadio.value : "maroon";
+
+    const cdEnabled = document.getElementById("offerCountdownEnabled")?.checked ?? false;
+    const cdEndVal = document.getElementById("offerCountdownEnd")?.value || "";
+    const cdEndIso = cdEndVal ? new Date(cdEndVal).toISOString() : "";
+
+    // Quantity Bundles Settings
+    const bundleEnabled = document.getElementById("bundleEnabled")?.checked ?? true;
+    const bundleScope = document.getElementById("bundleScope")?.value || "all";
+    const bundleCats = Array.from(document.querySelectorAll('input[name="bundleCat"]:checked')).map(cb => cb.value);
+    const bundleRule = document.getElementById("bundleIntermediateRule")?.value || "largest_tier_per_piece";
+    const bundleCouponStack = document.getElementById("bundleCouponPolicy")?.value === "allow_both";
+
+    const freeDelEnabled = document.getElementById("offerFreeDeliveryEnabled")?.checked ?? true;
+    const freeDelMin = parseInt(document.getElementById("offerFreeDeliveryMin")?.value, 10) || 0;
+
+    const popupEnabled = document.getElementById("offerPopupEnabled")?.checked ?? false;
+    const popupHead = (document.getElementById("offerPopupHeading")?.value || "").trim();
+    const popupText = (document.getElementById("offerPopupText")?.value || "").trim();
+    const popupImg = (document.getElementById("offerPopupImageUrl")?.value || "").trim();
+    const popupCta = (document.getElementById("offerPopupCtaText")?.value || "").trim() || "Shop Festive Kurtas";
+
+    // New version string so customers see updated popup
+    const popupVersion = `v_${Date.now()}`;
+
+    const newOffers = {
+      announcement: {
+        enabled: annEnabled,
+        text: annText || DEFAULT_OFFERS.announcement.text,
+        bgColor: bgColor,
+        link: annLink
+      },
+      countdown: {
+        enabled: cdEnabled,
+        endTime: cdEndIso
+      },
+      coupons: currentOffers.coupons || [],
+      bundles: {
+        enabled: bundleEnabled,
+        tiers: (currentOffers.bundles && currentOffers.bundles.tiers) || DEFAULT_OFFERS.bundles.tiers,
+        scope: bundleScope,
+        scopeItems: bundleCats,
+        intermediateRule: bundleRule,
+        allowCouponWithBundle: bundleCouponStack
+      },
+      combo: {
+        enabled: false,
+        buyQty: 2,
+        discountPercent: 0
+      },
+      free_delivery: {
+        enabled: freeDelEnabled,
+        minAmount: freeDelMin
+      },
+      popup: {
+        enabled: popupEnabled,
+        version: popupVersion,
+        heading: popupHead,
+        text: popupText,
+        image: popupImg,
+        ctaText: popupCta,
+        ctaLink: "#products"
+      }
+    };
+
+    await persistOffers(newOffers);
+  }
+
+  const saveTop = document.getElementById("btnSaveOffersTop");
+  const saveBottom = document.getElementById("btnSaveOffersBottom");
+  if (saveTop) saveTop.addEventListener("click", handleSaveOffers);
+  if (saveBottom) saveBottom.addEventListener("click", handleSaveOffers);
+}
+
+/**
+ * ----------------------------------------------------------------------------
  * 8. MAIN INITIALIZATION
  * ----------------------------------------------------------------------------
  */
 async function loadDashboard() {
   initSupabase();
-  await Promise.all([fetchProducts(), fetchCategories(), fetchSiteSettings()]);
+  await Promise.all([fetchProducts(), fetchCategories(), fetchSiteSettings(), fetchOffers()]);
   renderProductsList();
   renderCategoryCardsEditor();
   renderHeroEditor();
   populateStoreSettingsInputs();
+  populateOffersInputs();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -1930,4 +2750,5 @@ document.addEventListener("DOMContentLoaded", () => {
   initSearchAndFilter();
   initSettings();
   initHeroEditor();
+  initOffersTab();
 });

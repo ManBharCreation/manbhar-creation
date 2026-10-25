@@ -9,8 +9,70 @@ const STORAGE_KEYS = {
   SUPABASE_CFG: "manbhar_supabase_config",
   PRODUCTS: "manbhar_products",
   CATEGORIES: "manbhar_categories",
-  SITE_SETTINGS: "manbhar_site_settings"
+  SITE_SETTINGS: "manbhar_site_settings",
+  OFFERS: "manbhar_offers"
 };
+
+// Default Offers & Deals Configuration
+const DEFAULT_OFFERS = {
+  announcement: {
+    enabled: true,
+    text: "🎉 Special Festive Offer: Flat 20% OFF on all Kurta Sets | Use Code: FESTIVE20",
+    bgColor: "maroon",
+    link: "#products"
+  },
+  countdown: {
+    enabled: false,
+    endTime: ""
+  },
+  coupons: [
+    {
+      id: "c_festive20",
+      code: "FESTIVE20",
+      type: "percent",
+      value: 20,
+      minOrder: 999,
+      expiry: "2026-12-31",
+      enabled: true
+    },
+    {
+      id: "c_kurta100",
+      code: "KURTA100",
+      type: "flat",
+      value: 100,
+      minOrder: 799,
+      expiry: "2026-12-31",
+      enabled: true
+    }
+  ],
+  bundles: {
+    enabled: true,
+    tiers: [
+      { id: "b_3", qty: 3, price: 999 },
+      { id: "b_4", qty: 4, price: 1199 }
+    ],
+    scope: "all",
+    scopeItems: [],
+    intermediateRule: "largest_tier_per_piece",
+    allowCouponWithBundle: false
+  },
+  free_delivery: {
+    enabled: true,
+    minAmount: 1499
+  },
+  popup: {
+    enabled: false,
+    version: "1",
+    heading: "✨ Festive Grand Celebration ✨",
+    text: "Get flat 20% OFF on premium handcrafted Men Kurtas. Use coupon code FESTIVE20 at checkout!",
+    image: "",
+    ctaText: "Shop Festive Kurtas",
+    ctaLink: "#products"
+  }
+};
+
+let currentOffers = JSON.parse(JSON.stringify(DEFAULT_OFFERS));
+let appliedCoupons = {}; // Format: { [productId]: { code, discount, finalPrice } }
 
 // Default Site & Hero Settings (Graceful Fallback)
 const DEFAULT_SITE_SETTINGS = {
@@ -291,7 +353,9 @@ function normalizeProductRecord(p) {
     sizes: sizes,
     stock: stock,
     isOutOfStock: p.is_out_of_stock || false,
-    description: p.description
+    description: p.description,
+    is_flash_sale: p.is_flash_sale !== undefined ? p.is_flash_sale : (p.isFlashSale || false),
+    flash_sale_end: p.flash_sale_end || p.flashSaleEnd || null
   };
 }
 
@@ -343,6 +407,215 @@ async function loadSiteSettings() {
     currentSiteSettings = JSON.parse(JSON.stringify(DEFAULT_SITE_SETTINGS));
   }
   return currentSiteSettings;
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * OFFERS & DEALS CONTROLLER
+ * ----------------------------------------------------------------------------
+ */
+async function loadOffersData() {
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from("offers")
+        .select("*")
+        .eq("id", "current")
+        .single();
+      if (!error && data) {
+        currentOffers = deepMerge(DEFAULT_OFFERS, data);
+        localStorage.setItem(STORAGE_KEYS.OFFERS, JSON.stringify(currentOffers));
+        return currentOffers;
+      }
+    } catch (err) {
+      console.warn("Supabase load offers failed:", err);
+    }
+  }
+
+  const raw = localStorage.getItem(STORAGE_KEYS.OFFERS);
+  if (raw) {
+    try {
+      currentOffers = deepMerge(DEFAULT_OFFERS, JSON.parse(raw));
+    } catch (e) {
+      currentOffers = JSON.parse(JSON.stringify(DEFAULT_OFFERS));
+    }
+  } else {
+    currentOffers = JSON.parse(JSON.stringify(DEFAULT_OFFERS));
+  }
+  return currentOffers;
+}
+
+function formatTimeLeft(ms) {
+  if (ms <= 0) return "00:00:00";
+  const totalSeconds = Math.floor(ms / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  const pad = n => String(n).padStart(2, "0");
+  if (days > 0) {
+    return `${days}d ${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
+  }
+  return `${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
+}
+
+function updateCountdowns() {
+  const now = Date.now();
+
+  // Top Announcement Countdown
+  const bar = document.getElementById("topAnnouncementBar");
+  const timerWrap = document.getElementById("announcementTimerWrap");
+  const badge = document.getElementById("announcementCountdown");
+
+  const ann = currentOffers.announcement || {};
+  const cd = currentOffers.countdown || {};
+
+  if (ann.enabled && cd.enabled && cd.endTime) {
+    const endMs = new Date(cd.endTime).getTime();
+    const diff = endMs - now;
+    if (diff <= 0) {
+      // Time khatam: announcement bar aur timer khud hide ho jaye (Req 2)
+      if (bar) bar.style.display = "none";
+    } else {
+      if (bar && bar.getAttribute("data-user-closed") !== "true") {
+        bar.style.display = "block";
+      }
+      if (timerWrap) timerWrap.style.display = "inline-flex";
+      if (badge) badge.textContent = formatTimeLeft(diff);
+    }
+  }
+
+  // Flash Sale Countdowns on Product Cards
+  document.querySelectorAll(".flash-timer-text").forEach(el => {
+    const endStr = el.getAttribute("data-end");
+    if (!endStr) return;
+    const diff = new Date(endStr).getTime() - now;
+    if (diff <= 0) {
+      const parentBadge = el.closest(".product-flash-badge");
+      if (parentBadge) parentBadge.style.display = "none";
+    } else {
+      el.textContent = "Ends in " + formatTimeLeft(diff);
+    }
+  });
+}
+
+function applyOffersSettings() {
+  const bar = document.getElementById("topAnnouncementBar");
+  const textEl = document.getElementById("announcementText");
+  const linkEl = document.getElementById("announcementLink");
+  const timerWrap = document.getElementById("announcementTimerWrap");
+  const closeBtn = document.getElementById("closeAnnouncementBtn");
+
+  if (!bar) return;
+
+  const ann = currentOffers.announcement || {};
+  const cd = currentOffers.countdown || {};
+
+  // Check if countdown expired
+  let isExpired = false;
+  if (cd.enabled && cd.endTime) {
+    if (new Date(cd.endTime).getTime() <= Date.now()) {
+      isExpired = true;
+    }
+  }
+
+  if (ann.enabled && !isExpired && bar.getAttribute("data-user-closed") !== "true") {
+    bar.style.display = "block";
+    bar.className = `top-announcement-bar bar-${ann.bgColor || 'maroon'}`;
+
+    if (textEl) textEl.textContent = ann.text || "";
+
+    if (linkEl) {
+      if (ann.link && ann.link.trim()) {
+        linkEl.href = ann.link.trim();
+        linkEl.style.display = "inline-block";
+      } else {
+        linkEl.style.display = "none";
+      }
+    }
+
+    if (cd.enabled && cd.endTime) {
+      if (timerWrap) timerWrap.style.display = "inline-flex";
+    } else {
+      if (timerWrap) timerWrap.style.display = "none";
+    }
+  } else {
+    bar.style.display = "none";
+  }
+
+  if (closeBtn && !closeBtn.dataset.wired) {
+    closeBtn.dataset.wired = "true";
+    closeBtn.addEventListener("click", () => {
+      bar.style.display = "none";
+      bar.setAttribute("data-user-closed", "true");
+    });
+  }
+
+  updateCountdowns();
+  renderFestivalPopup();
+}
+
+function renderFestivalPopup() {
+  const overlay = document.getElementById("festivalPopupOverlay");
+  const titleEl = document.getElementById("festivalPopupTitle");
+  const textEl = document.getElementById("festivalPopupText");
+  const imgWrap = document.getElementById("festivalPopupImgWrap");
+  const imgEl = document.getElementById("festivalPopupImg");
+  const ctaEl = document.getElementById("festivalPopupCta");
+  const closeBtn = document.getElementById("festivalPopupCloseBtn");
+
+  if (!overlay) return;
+
+  const popup = currentOffers.popup || {};
+  if (!popup.enabled) {
+    overlay.style.display = "none";
+    return;
+  }
+
+  // Versioning: customer ko ek baar dikhe, band karne ke baad usi device par dobara na aaye jab tak popup badle nahi (Req 6)
+  const currentVersion = popup.version || (popup.heading + "_" + (popup.text ? popup.text.slice(0, 10) : ""));
+  const seenVersion = localStorage.getItem("manbhar_seen_popup_version");
+  if (seenVersion === currentVersion) {
+    return;
+  }
+
+  if (titleEl) titleEl.textContent = popup.heading || "Special Festive Celebration";
+  if (textEl) textEl.textContent = popup.text || "";
+
+  if (popup.image && popup.image.trim()) {
+    if (imgEl) imgEl.src = popup.image.trim();
+    if (imgWrap) imgWrap.style.display = "block";
+  } else {
+    if (imgWrap) imgWrap.style.display = "none";
+  }
+
+  function dismissPopup() {
+    overlay.style.display = "none";
+    localStorage.setItem("manbhar_seen_popup_version", currentVersion);
+  }
+
+  if (ctaEl) {
+    ctaEl.textContent = popup.ctaText || "Shop Festive Kurtas";
+    ctaEl.href = popup.ctaLink || "#products";
+    ctaEl.onclick = () => dismissPopup();
+  }
+
+  if (closeBtn && !closeBtn.dataset.wired) {
+    closeBtn.dataset.wired = "true";
+    closeBtn.addEventListener("click", () => dismissPopup());
+  }
+
+  overlay.onclick = (e) => {
+    if (e.target === overlay) dismissPopup();
+  };
+
+  // Delayed reveal for smooth UX
+  setTimeout(() => {
+    if (popup.enabled && localStorage.getItem("manbhar_seen_popup_version") !== currentVersion) {
+      overlay.style.display = "flex";
+    }
+  }, 1200);
 }
 
 function renderTrustFeatures(featuresList) {
@@ -689,13 +962,336 @@ function renderCategories() {
 }
 
 /**
- * Generate WhatsApp Order Link with Exact Requirement Message:
- * "Hello ManBhar Creation! I would like to order: [Product Name] (Price: ₹[Price], Size: [Selected Size], Qty: [Qty]). Please let me know the availability and payment options."
+ * Calculate Quantity Bundle Price according to Active Admin Rules
+ * Returns: { isBundle, finalPrice, normalTotal, savings, nudgeText, tiers }
+ */
+function calculateBundlePrice(product, qty, currentStock) {
+  const bundles = currentOffers.bundles;
+  const normalTotal = product.price * qty;
+
+  if (!bundles || !bundles.enabled) {
+    return {
+      isBundle: false,
+      finalPrice: normalTotal,
+      normalTotal: normalTotal,
+      savings: 0,
+      nudgeText: "",
+      tiers: []
+    };
+  }
+
+  // Check Scope (Saare products vs sirf chune hue categories)
+  if (bundles.scope === "categories" && Array.isArray(bundles.scopeItems) && bundles.scopeItems.length > 0) {
+    const prodCat = (product.category || "").toLowerCase();
+    const allowed = bundles.scopeItems.some(cat => cat.toLowerCase() === prodCat);
+    if (!allowed) {
+      return {
+        isBundle: false,
+        finalPrice: normalTotal,
+        normalTotal: normalTotal,
+        savings: 0,
+        nudgeText: "",
+        tiers: []
+      };
+    }
+  }
+
+  const rawTiers = Array.isArray(bundles.tiers) ? bundles.tiers : [];
+  const tiers = rawTiers.slice().sort((a, b) => a.qty - b.qty);
+
+  if (tiers.length === 0) {
+    return {
+      isBundle: false,
+      finalPrice: normalTotal,
+      normalTotal: normalTotal,
+      savings: 0,
+      nudgeText: "",
+      tiers: []
+    };
+  }
+
+  const minTier = tiers[0];
+
+  // If qty < minTier.qty -> not yet a bundle, provide nudge if stock permits
+  if (qty < minTier.qty) {
+    let nudge = "";
+    if (currentStock === undefined || currentStock >= minTier.qty) {
+      const diff = minTier.qty - qty;
+      nudge = `Aur ${diff} ${diff === 1 ? 'kurta' : 'kurte'} lo aur ${minTier.qty} sirf ₹${minTier.price} mein pao!`;
+    }
+    return {
+      isBundle: false,
+      finalPrice: normalTotal,
+      normalTotal: normalTotal,
+      savings: 0,
+      nudgeText: nudge,
+      tiers: tiers
+    };
+  }
+
+  // Exact tier match? E.g., qty === 3 or qty === 4
+  const exactTier = tiers.find(t => t.qty === qty);
+  if (exactTier) {
+    const bundlePrice = exactTier.price;
+    const savings = Math.max(0, normalTotal - bundlePrice);
+
+    // Check for next tier nudge
+    const nextTier = tiers.find(t => t.qty > qty);
+    let nudge = "";
+    if (nextTier && (currentStock === undefined || currentStock >= nextTier.qty)) {
+      const diff = nextTier.qty - qty;
+      nudge = `Aur ${diff} ${diff === 1 ? 'kurta' : 'kurte'} lo aur ${nextTier.qty} sirf ₹${nextTier.price} mein pao!`;
+    }
+
+    return {
+      isBundle: true,
+      tierName: `${qty} kurte`,
+      tierQty: qty,
+      finalPrice: bundlePrice,
+      normalTotal: normalTotal,
+      savings: savings,
+      nudgeText: nudge,
+      tiers: tiers
+    };
+  }
+
+  // Intermediate quantities (e.g. qty=5 when tiers are 3 and 4)
+  const rule = bundles.intermediateRule || "largest_tier_per_piece";
+  let bundlePrice = normalTotal;
+
+  if (rule === "closest_lower_plus_normal") {
+    // Rule a: Sabse paas ka chhota tier + baaki kurte normal price par
+    const lowerTier = tiers.slice().reverse().find(t => t.qty <= qty) || minTier;
+    const extraQty = qty - lowerTier.qty;
+    bundlePrice = lowerTier.price + (extraQty * product.price);
+  } else {
+    // Rule b (Default): Sabse bada tier + baaki kurte us tier ke per-piece rate par (999/3 = ₹333 har kurta)
+    const applicableTier = tiers.slice().reverse().find(t => t.qty <= qty) || tiers[tiers.length - 1];
+    const perPiece = Math.round(applicableTier.price / applicableTier.qty);
+    const extraQty = qty - applicableTier.qty;
+    bundlePrice = applicableTier.price + (extraQty * perPiece);
+  }
+
+  const savings = Math.max(0, normalTotal - bundlePrice);
+
+  // Check for next tier nudge
+  const nextTier = tiers.find(t => t.qty > qty);
+  let nudge = "";
+  if (nextTier && (currentStock === undefined || currentStock >= nextTier.qty)) {
+    const diff = nextTier.qty - qty;
+    nudge = `Aur ${diff} ${diff === 1 ? 'kurta' : 'kurte'} lo aur ${nextTier.qty} sirf ₹${nextTier.price} mein pao!`;
+  }
+
+  return {
+    isBundle: true,
+    tierName: `${qty} kurte`,
+    tierQty: qty,
+    finalPrice: bundlePrice,
+    normalTotal: normalTotal,
+    savings: savings,
+    nudgeText: nudge,
+    tiers: tiers
+  };
+}
+
+/**
+ * Render Bundle Teaser Bar for Product Card (Requirement 7 & 9)
+ */
+function renderBundleTeaser(product, currentStock) {
+  const bundles = currentOffers.bundles;
+  if (!bundles || !bundles.enabled) return "";
+
+  if (bundles.scope === "categories" && Array.isArray(bundles.scopeItems) && bundles.scopeItems.length > 0) {
+    const prodCat = (product.category || "").toLowerCase();
+    const allowed = bundles.scopeItems.some(cat => cat.toLowerCase() === prodCat);
+    if (!allowed) return "";
+  }
+
+  const tiers = (bundles.tiers || []).slice().sort((a, b) => a.qty - b.qty);
+  if (tiers.length === 0) return "";
+
+  const chipsHtml = tiers.map((t, idx) => {
+    const isOutOfStock = currentStock !== undefined && currentStock < t.qty;
+    return `
+      <span class="bundle-tier-chip ${isOutOfStock ? 'disabled-stock' : ''}" data-product-id="${product.id}" data-tier-qty="${t.qty}" title="${isOutOfStock ? `Size stock only ${currentStock}` : `Click to set quantity to ${t.qty}`}">
+        ${t.qty} kurte ₹${t.price} mein
+      </span>
+      ${idx < tiers.length - 1 ? `<span class="bundle-tier-sep">|</span>` : ""}
+    `;
+  }).join("");
+
+  return `
+    <div class="bundle-offer-teaser" id="bundle-teaser-${product.id}">
+      <span>🎁</span>
+      ${chipsHtml}
+    </div>
+  `;
+}
+
+/**
+ * Render Dynamic Live Price Box (Requirement 8 & 11)
+ */
+function renderBundlePriceBox(product, qty, currentStock) {
+  const bundleRes = calculateBundlePrice(product, qty, currentStock);
+  const freeDel = currentOffers.free_delivery;
+  const isFreeDel = freeDel && freeDel.enabled && freeDel.minAmount > 0 && bundleRes.finalPrice >= freeDel.minAmount;
+
+  if (bundleRes.isBundle) {
+    return `
+      <div class="product-bundle-price-box" id="bundle-price-box-${product.id}">
+        <div class="bundle-live-headline">
+          <span class="bundle-live-title">${qty} kurte = ₹${bundleRes.finalPrice}</span>
+          <span>
+            <span class="bundle-cut-price">₹${bundleRes.normalTotal}</span>
+            <span class="bundle-savings-badge">Bachat ₹${bundleRes.savings}</span>
+          </span>
+        </div>
+        ${bundleRes.nudgeText ? `<div class="bundle-nudge-note">💡 ${bundleRes.nudgeText}</div>` : ""}
+        ${isFreeDel ? `<div class="bundle-free-delivery-badge">🚚 Free Delivery Unlocked!</div>` : ""}
+      </div>
+    `;
+  } else {
+    return `
+      <div class="product-bundle-price-box normal" id="bundle-price-box-${product.id}">
+        <div class="bundle-live-headline">
+          <span class="bundle-live-title">₹${product.price} × ${qty} = ₹${bundleRes.finalPrice}</span>
+        </div>
+        ${bundleRes.nudgeText ? `<div class="bundle-nudge-note">💡 ${bundleRes.nudgeText}</div>` : ""}
+        ${isFreeDel ? `<div class="bundle-free-delivery-badge">🚚 Free Delivery Unlocked!</div>` : ""}
+      </div>
+    `;
+  }
+}
+
+/**
+ * Generate WhatsApp Order Link (Requirement 12)
+ * Bundle message:
+ * "Hello ManBhar Creation! I would like to order: [Product Name] (Size: [Size], Qty: [Qty]). Bundle Offer: [Qty] kurte = ₹[Bundle Total]. Final: ₹[Final]. Please let me know the availability and payment options."
  */
 function getWhatsAppOrderLink(product, selectedSize, qty = 1) {
   const sizeValue = selectedSize || "Standard";
-  const msg = `Hello ${SHOP_CONFIG.shopName}! I would like to order: ${product.name} (Price: ₹${product.price}, Size: ${sizeValue}, Qty: ${qty}). Please let me know the availability and payment options.`;
+  const stockMap = product.stock || {};
+  const currentStock = stockMap[sizeValue] !== undefined ? stockMap[sizeValue] : 99;
+
+  const bundleRes = calculateBundlePrice(product, qty, currentStock);
+  const applied = appliedCoupons[product.id];
+  let msg = "";
+
+  if (bundleRes.isBundle) {
+    // If bundle is active
+    if (applied && applied.discount > 0 && currentOffers.bundles?.allowCouponWithBundle) {
+      const bundleFinal = Math.max(0, bundleRes.finalPrice - applied.discount);
+      msg = `Hello ${SHOP_CONFIG.shopName}! I would like to order: ${product.name} (Size: ${sizeValue}, Qty: ${qty}). Bundle Offer: ${qty} kurte = ₹${bundleRes.finalPrice}. Coupon: ${applied.code} (-₹${applied.discount}). Final: ₹${bundleFinal}. Please let me know the availability and payment options.`;
+    } else {
+      msg = `Hello ${SHOP_CONFIG.shopName}! I would like to order: ${product.name} (Size: ${sizeValue}, Qty: ${qty}). Bundle Offer: ${qty} kurte = ₹${bundleRes.finalPrice}. Final: ₹${bundleRes.finalPrice}. Please let me know the availability and payment options.`;
+    }
+  } else {
+    // No bundle active (Normal single or low quantity)
+    const normalTotal = product.price * qty;
+    if (applied && applied.discount > 0) {
+      msg = `Hello ${SHOP_CONFIG.shopName}! I would like to order: ${product.name} (Price: ₹${product.price}, Size: ${sizeValue}, Qty: ${qty}). Coupon: ${applied.code} (-₹${applied.discount}). Final: ₹${applied.finalPrice}. Please let me know the availability and payment options.`;
+    } else {
+      msg = `Hello ${SHOP_CONFIG.shopName}! I would like to order: ${product.name} (Price: ₹${product.price}, Size: ${sizeValue}, Qty: ${qty}). Final: ₹${normalTotal}. Please let me know the availability and payment options.`;
+    }
+  }
+
   return `https://wa.me/${SHOP_CONFIG.phone}?text=${encodeURIComponent(msg)}`;
+}
+
+/**
+ * Apply coupon code for a product (Requirement 10 & 11)
+ */
+function applyCouponForProduct(prodId, codeInputVal) {
+  const code = (codeInputVal || "").trim().toUpperCase();
+  const feedbackEl = document.getElementById(`coupon-feedback-${prodId}`);
+  const product = SHOP_CONFIG.products.find(p => p.id === prodId);
+  if (!product) return;
+
+  const currentQty = selectedQuantities[prodId] || 1;
+  const stockMap = product.stock || {};
+  const currentSelectedSize = selectedSizes[prodId] || "Standard";
+  const currentStock = stockMap[currentSelectedSize] !== undefined ? stockMap[currentSelectedSize] : 99;
+  const bundleRes = calculateBundlePrice(product, currentQty, currentStock);
+
+  if (!code) {
+    if (feedbackEl) {
+      feedbackEl.className = "coupon-feedback error";
+      feedbackEl.textContent = "Kripya coupon code enter karein";
+      feedbackEl.style.display = "block";
+    }
+    return;
+  }
+
+  // Check coupon stacking policy with bundle (Requirement 10)
+  if (bundleRes.isBundle && (!currentOffers.bundles || !currentOffers.bundles.allowCouponWithBundle)) {
+    if (feedbackEl) {
+      feedbackEl.className = "coupon-feedback error";
+      feedbackEl.textContent = "Bundle offer ke saath coupon nahi lag sakta";
+      feedbackEl.style.display = "block";
+    }
+    return;
+  }
+
+  const coupons = currentOffers.coupons || [];
+  const found = coupons.find(c => c.code.trim().toUpperCase() === code);
+
+  if (!found || !found.enabled) {
+    if (feedbackEl) {
+      feedbackEl.className = "coupon-feedback error";
+      feedbackEl.textContent = "Code sahi nahi hai";
+      feedbackEl.style.display = "block";
+    }
+    return;
+  }
+
+  if (found.expiry) {
+    const expDate = new Date(found.expiry);
+    expDate.setHours(23, 59, 59, 999);
+    if (expDate.getTime() < Date.now()) {
+      if (feedbackEl) {
+        feedbackEl.className = "coupon-feedback error";
+        feedbackEl.textContent = "Code expire ho gaya";
+        feedbackEl.style.display = "block";
+      }
+      return;
+    }
+  }
+
+  // Check min order amount against effective total
+  const baseTotal = bundleRes.isBundle ? bundleRes.finalPrice : (product.price * currentQty);
+  if (found.minOrder && baseTotal < found.minOrder) {
+    if (feedbackEl) {
+      feedbackEl.className = "coupon-feedback error";
+      feedbackEl.textContent = `Minimum ₹${found.minOrder} order par valid hai`;
+      feedbackEl.style.display = "block";
+    }
+    return;
+  }
+
+  // Calculate discount
+  let discount = 0;
+  if (found.type === "percent") {
+    discount = Math.round((baseTotal * found.value) / 100);
+  } else {
+    discount = Math.min(found.value, baseTotal);
+  }
+
+  const finalPrice = Math.max(0, baseTotal - discount);
+
+  appliedCoupons[prodId] = {
+    code: found.code.toUpperCase(),
+    discount,
+    finalPrice,
+    type: found.type,
+    value: found.value
+  };
+
+  renderProducts();
+}
+
+function removeCouponForProduct(prodId) {
+  delete appliedCoupons[prodId];
+  renderProducts();
 }
 
 /**
@@ -709,11 +1305,13 @@ function renderProducts() {
 
   const filteredProducts = currentFilter === "all"
     ? SHOP_CONFIG.products
-    : SHOP_CONFIG.products.filter(p => p.category.toLowerCase() === currentFilter.toLowerCase());
+    : currentFilter === "offers"
+      ? SHOP_CONFIG.products.filter(p => (p.originalPrice && p.originalPrice > p.price) || (p.is_flash_sale && (!p.flash_sale_end || new Date(p.flash_sale_end) > new Date())))
+      : SHOP_CONFIG.products.filter(p => p.category.toLowerCase() === currentFilter.toLowerCase());
 
   // Count & Clear Filter visibility
   if (countEl) {
-    const label = currentFilter === "all" ? "All Styles" : `${currentFilter.toUpperCase()} Styles`;
+    const label = currentFilter === "all" ? "All Styles" : currentFilter === "offers" ? "Special Offers" : `${currentFilter.toUpperCase()} Styles`;
     countEl.textContent = `Showing ${filteredProducts.length} ${label}`;
   }
 
@@ -735,7 +1333,7 @@ function renderProducts() {
   if (filteredProducts.length === 0) {
     grid.innerHTML = `
       <div style="grid-column: 1 / -1; text-align: center; padding: 3rem 1rem; color: var(--color-text-muted);">
-        <p style="font-size: 1.1rem; margin-bottom: 1rem;">No ${currentFilter.toUpperCase()} kurtas available right now.</p>
+        <p style="font-size: 1.1rem; margin-bottom: 1rem;">No ${currentFilter === 'offers' ? 'special offer' : currentFilter.toUpperCase()} kurtas available right now.</p>
         <button class="filter-pill active" onclick="setFilter('all')">View All Styles</button>
       </div>
     `;
@@ -770,6 +1368,28 @@ function renderProducts() {
     const fallbackSrc = createSvgPlaceholder(product.name, product.category);
     const waLink = getWhatsAppOrderLink(product, currentSelectedSize, currentQty);
 
+    // Auto calculate "XX% OFF" badge if originalPrice > price (Req 9)
+    let discountBadgeHtml = "";
+    if (product.originalPrice && product.originalPrice > product.price) {
+      const pct = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
+      if (pct > 0) {
+        discountBadgeHtml = `<span class="product-discount-pill">${pct}% OFF</span>`;
+      }
+    }
+
+    // Flash Sale Badge & Timer
+    let flashSaleHtml = "";
+    const isFlash = product.is_flash_sale && (!product.flash_sale_end || new Date(product.flash_sale_end) > new Date());
+    if (isFlash) {
+      flashSaleHtml = `
+        <div class="product-flash-badge">
+          <span class="flash-pulse-dot"></span>
+          <span>⚡ Flash Sale</span>
+          ${product.flash_sale_end ? `<span class="flash-timer-text" data-end="${product.flash_sale_end}"></span>` : ""}
+        </div>
+      `;
+    }
+
     // Build Size Pills
     const sizesHtml = sizeKeys.map(size => {
       const sizeQty = stockMap[size] !== undefined ? stockMap[size] : 99;
@@ -801,6 +1421,36 @@ function renderProducts() {
       stockStatusHtml = `<span class="stock-status-text in-stock">✓ In Stock (${currentStock} available)</span>`;
     }
 
+    // Coupon Code Box Markup (Req 11)
+    const applied = appliedCoupons[product.id];
+    const itemTotal = product.price * currentQty;
+    const finalPriceDisplay = applied ? applied.finalPrice : itemTotal;
+
+    const couponBoxHtml = `
+      <div class="product-coupon-box" id="coupon-box-${product.id}">
+        <div class="coupon-input-group">
+          <input 
+            type="text" 
+            class="coupon-input" 
+            id="coupon-input-${product.id}" 
+            placeholder="Coupon code (e.g. FESTIVE20)"
+            value="${applied ? applied.code : ''}"
+            ${applied ? 'disabled' : ''}
+            autocomplete="off"
+          />
+          ${applied ? `
+            <button type="button" class="btn-apply-coupon btn-remove-coupon-action" data-product-id="${product.id}" style="background: #991B1B;">Remove</button>
+          ` : `
+            <button type="button" class="btn-apply-coupon btn-apply-coupon-action" data-product-id="${product.id}">Apply</button>
+          `}
+        </div>
+        <div class="coupon-feedback ${applied ? 'success' : ''}" id="coupon-feedback-${product.id}" style="${applied ? 'display: block;' : 'display: none;'}">
+          ${applied ? `<span>✓ '${applied.code}' applied! Saved ₹${applied.discount}</span>` : ""}
+        </div>
+      </div>
+      <div class="price-disclaimer-note">ℹ️ Final price WhatsApp par confirm hogi</div>
+    `;
+
     return `
       <div class="product-card" id="card-${product.id}">
         <!-- Image Container (Click opens Lightbox Slider) -->
@@ -812,6 +1462,7 @@ function renderProducts() {
             loading="lazy"
             onerror="this.onerror=null; this.src='${fallbackSrc}';"
           />
+          ${discountBadgeHtml}
           ${product.badge ? `<span class="product-badge">${product.badge}</span>` : ""}
           ${totalPhotos > 1 ? `
             <span class="photo-count-badge">
@@ -823,12 +1474,17 @@ function renderProducts() {
 
         <div class="product-card-body">
           <span class="product-category-tag">${product.category}</span>
+          ${flashSaleHtml}
           <h3 class="product-title">${product.name}</h3>
           
           <div class="product-price-row">
             <span class="product-price">₹${product.price}</span>
             ${product.originalPrice ? `<span class="product-original-price">₹${product.originalPrice}</span>` : ""}
+            ${applied ? `<span style="margin-left: auto; font-size: 0.85rem; font-weight: 700; color: #15803D;">Final: ₹${finalPriceDisplay}</span>` : ""}
           </div>
+
+          <!-- QUANTITY BUNDLE TEASER (Requirement 7 & 9) -->
+          ${renderBundleTeaser(product, currentStock)}
 
           <!-- SIZES WITH 0-STOCK DISABLED -->
           <div class="product-size-section">
@@ -866,6 +1522,12 @@ function renderProducts() {
             </div>
           </div>
 
+          <!-- DYNAMIC LIVE BUNDLE PRICE BOX (Requirement 8, 11) -->
+          ${renderBundlePriceBox(product, currentQty, currentStock)}
+
+          <!-- COUPON CODE BOX -->
+          ${couponBoxHtml}
+
           <!-- ORDER ON WHATSAPP BUTTON -->
           <a 
             href="${waLink}" 
@@ -874,6 +1536,7 @@ function renderProducts() {
             class="btn-whatsapp-order ${isTotallyOut ? 'btn-out-of-stock' : ''}" 
             id="order-btn-${product.id}"
             aria-label="Order ${product.name} on WhatsApp"
+            style="margin-top: 0.75rem;"
           >
             <svg width="18" height="18" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.669-.699c.969.529 1.836.78 2.791.78 3.181 0 5.767-2.586 5.768-5.766 0-3.18-2.587-5.766-5.768-5.766zm9.969 5.766c0 5.514-4.486 10-10 10-1.742 0-3.376-.447-4.802-1.229l-5.198 1.362 1.385-5.064c-.878-1.493-1.385-3.235-1.385-5.069 0-5.514 4.486-10 10-10s10 4.486 10 10z"/></svg>
             <span>${isTotallyOut ? 'Inquire on WhatsApp' : 'Order on WhatsApp'}</span>
@@ -890,6 +1553,26 @@ function renderProducts() {
  * Attach Card Handlers: Size selection and Quantity (+ / -)
  */
 function attachProductCardListeners(grid) {
+  // Bundle Tier Chip Quick Click (set quantity)
+  grid.querySelectorAll(".bundle-tier-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      if (chip.classList.contains("disabled-stock")) return;
+      const prodId = chip.getAttribute("data-product-id");
+      const tierQty = parseInt(chip.getAttribute("data-tier-qty"), 10);
+      if (!prodId || !tierQty) return;
+
+      const targetProduct = SHOP_CONFIG.products.find(p => p.id === prodId);
+      const stockMap = targetProduct ? targetProduct.stock || {} : {};
+      const sz = selectedSizes[prodId];
+      const maxStock = stockMap[sz] !== undefined ? stockMap[sz] : 99;
+
+      if (tierQty <= maxStock) {
+        selectedQuantities[prodId] = tierQty;
+        updateProductCardUI(prodId, sz, maxStock);
+      }
+    });
+  });
+
   // Size selection
   grid.querySelectorAll(".size-btn").forEach(btn => {
     btn.addEventListener("click", () => {
@@ -944,6 +1627,34 @@ function attachProductCardListeners(grid) {
       }
     });
   });
+
+  // Apply Coupon Click
+  grid.querySelectorAll(".btn-apply-coupon-action").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const prodId = btn.getAttribute("data-product-id");
+      const inputEl = document.getElementById(`coupon-input-${prodId}`);
+      if (inputEl) applyCouponForProduct(prodId, inputEl.value);
+    });
+  });
+
+  // Remove Coupon Click
+  grid.querySelectorAll(".btn-remove-coupon-action").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const prodId = btn.getAttribute("data-product-id");
+      removeCouponForProduct(prodId);
+    });
+  });
+
+  // Enter Key on Coupon Input
+  grid.querySelectorAll(".coupon-input").forEach(input => {
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const prodId = input.id.replace("coupon-input-", "");
+        applyCouponForProduct(prodId, input.value);
+      }
+    });
+  });
 }
 
 function updateProductCardUI(prodId, chosenSize, availableStock) {
@@ -952,6 +1663,48 @@ function updateProductCardUI(prodId, chosenSize, availableStock) {
   if (!card || !targetProduct) return;
 
   const currentQty = selectedQuantities[prodId] || 1;
+
+  // Calculate live bundle pricing
+  const bundleRes = calculateBundlePrice(targetProduct, currentQty, availableStock);
+
+  // Recalculate or handle coupon conflict (Requirement 10)
+  if (appliedCoupons[prodId]) {
+    if (bundleRes.isBundle && (!currentOffers.bundles || !currentOffers.bundles.allowCouponWithBundle)) {
+      // Automatic removal if coupon not allowed with bundle
+      delete appliedCoupons[prodId];
+      const couponInput = document.getElementById(`coupon-input-${prodId}`);
+      if (couponInput) {
+        couponInput.value = "";
+        couponInput.disabled = false;
+      }
+      const feedbackEl = document.getElementById(`coupon-feedback-${prodId}`);
+      if (feedbackEl) {
+        feedbackEl.className = "coupon-feedback";
+        feedbackEl.style.color = "#B45309";
+        feedbackEl.textContent = "Bundle offer active (Coupon not applicable with bundle)";
+        feedbackEl.style.display = "block";
+      }
+      const removeBtn = card.querySelector(".btn-remove-coupon-action");
+      if (removeBtn) {
+        removeBtn.className = "btn-apply-coupon btn-apply-coupon-action";
+        removeBtn.style.background = "";
+        removeBtn.textContent = "Apply";
+      }
+    } else {
+      const couponData = (currentOffers.coupons || []).find(c => c.code.toUpperCase() === appliedCoupons[prodId].code);
+      if (couponData) {
+        const baseTotal = bundleRes.isBundle ? bundleRes.finalPrice : (targetProduct.price * currentQty);
+        let discount = 0;
+        if (couponData.type === "percent") {
+          discount = Math.round((baseTotal * couponData.value) / 100);
+        } else {
+          discount = Math.min(couponData.value, baseTotal);
+        }
+        appliedCoupons[prodId].discount = discount;
+        appliedCoupons[prodId].finalPrice = Math.max(0, baseTotal - discount);
+      }
+    }
+  }
 
   // Active size pill
   card.querySelectorAll(".size-btn").forEach(b => {
@@ -986,6 +1739,31 @@ function updateProductCardUI(prodId, chosenSize, availableStock) {
     } else {
       statusContainer.innerHTML = `<span class="stock-status-text in-stock">✓ In Stock (${availableStock} available)</span>`;
     }
+  }
+
+  // Update Teaser Bar (grey out if tier > availableStock)
+  const teaserEl = document.getElementById(`bundle-teaser-${prodId}`);
+  if (teaserEl) {
+    teaserEl.outerHTML = renderBundleTeaser(targetProduct, availableStock);
+    const newTeaser = document.getElementById(`bundle-teaser-${prodId}`);
+    if (newTeaser) {
+      newTeaser.querySelectorAll(".bundle-tier-chip").forEach(chip => {
+        chip.addEventListener("click", () => {
+          if (chip.classList.contains("disabled-stock")) return;
+          const tierQty = parseInt(chip.getAttribute("data-tier-qty"), 10);
+          if (tierQty && tierQty <= availableStock) {
+            selectedQuantities[prodId] = tierQty;
+            updateProductCardUI(prodId, chosenSize, availableStock);
+          }
+        });
+      });
+    }
+  }
+
+  // Update Live Price Box
+  const priceBoxEl = document.getElementById(`bundle-price-box-${prodId}`);
+  if (priceBoxEl) {
+    priceBoxEl.outerHTML = renderBundlePriceBox(targetProduct, currentQty, availableStock);
   }
 
   // Update WhatsApp link
@@ -1149,11 +1927,15 @@ window.setFilter = setFilter;
 document.addEventListener("DOMContentLoaded", async () => {
   initShopData();
   initSupabaseClient();
-  await Promise.all([loadCatalogData(), loadSiteSettings()]);
+  await Promise.all([loadCatalogData(), loadSiteSettings(), loadOffersData()]);
   applySiteSettings();
+  applyOffersSettings();
   renderCategories();
   renderProducts();
   initLightboxListeners();
+
+  // Start live countdown timer loop (runs every second)
+  setInterval(updateCountdowns, 1000);
 
   // Filter Pill buttons above grid
   document.querySelectorAll(".filter-pill").forEach(pill => {
@@ -1199,6 +1981,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       await loadSiteSettings();
       applySiteSettings();
       renderProducts(); // Refresh WhatsApp order links with new number if changed
+    } else if (e.key === STORAGE_KEYS.OFFERS) {
+      await loadOffersData();
+      applyOffersSettings();
+      renderProducts();
     }
   });
 });

@@ -41,6 +41,22 @@
 </head>
 <body>
 
+  <!-- TOP ANNOUNCEMENT BAR (Controlled from Admin -> Offers) -->
+  <div id="topAnnouncementBar" class="top-announcement-bar bar-maroon" style="display: none;">
+    <div class="container announcement-inner">
+      <div class="announcement-content">
+        <span class="announcement-icon">✨</span>
+        <span id="announcementText" class="announcement-text"></span>
+        <a id="announcementLink" href="#products" class="announcement-cta-link" style="display: none;">Shop Now →</a>
+      </div>
+      <div id="announcementTimerWrap" class="announcement-timer-wrap" style="display: none;">
+        <span class="timer-label">Ends in:</span>
+        <span id="announcementCountdown" class="announcement-countdown-badge">00:00:00</span>
+      </div>
+      <button type="button" id="closeAnnouncementBtn" class="announcement-close-btn" aria-label="Close Announcement">✕</button>
+    </div>
+  </div>
+
   <!-- TOP BRAND NAV BAR -->
   <header class="site-header" id="siteHeader">
     <div class="header-inner container">
@@ -228,6 +244,7 @@
         <div class="filter-controls-bar">
           <div class="filter-pill-list" id="categoryFilterPills">
             <button class="filter-pill active" data-category="all">All Styles</button>
+            <button class="filter-pill filter-pill-offers" data-category="offers">🎁 Offers</button>
             <button class="filter-pill" data-category="casual">Casual</button>
             <button class="filter-pill" data-category="short">Short</button>
             <button class="filter-pill" data-category="embroidered">Embroidered</button>
@@ -479,6 +496,24 @@
       </div>
       <span class="whatsapp-label">Order on WhatsApp</span>
     </a>
+  </div>
+
+  <!-- FESTIVAL OFFER POPUP MODAL -->
+  <div id="festivalPopupOverlay" class="festival-popup-overlay" style="display: none;" aria-hidden="true">
+    <div class="festival-popup-card" role="dialog" aria-modal="true">
+      <button type="button" class="festival-popup-close-btn" id="festivalPopupCloseBtn" aria-label="Close offer">✕</button>
+      <div id="festivalPopupImgWrap" class="festival-popup-img-wrap" style="display: none;">
+        <img id="festivalPopupImg" src="" alt="Festival Offer" class="festival-popup-img">
+      </div>
+      <div class="festival-popup-body">
+        <span class="festival-popup-eyebrow">✨ EXCLUSIVE CELEBRATION ✨</span>
+        <h3 id="festivalPopupTitle" class="festival-popup-title"></h3>
+        <p id="festivalPopupText" class="festival-popup-text"></p>
+        <div class="festival-popup-actions">
+          <a id="festivalPopupCta" href="#products" class="btn-festival-cta">Shop Offers Now</a>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="app.js"></script>
