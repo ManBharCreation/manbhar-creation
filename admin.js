@@ -1,0 +1,1645 @@
+/**
+ * ============================================================================
+ * MANBHAR CREATION - ADMIN DASHBOARD CONTROLLER
+ * Full Product Management, Image Upload with Auto-WebP Compression & Supabase Sync
+ * ============================================================================
+ */
+
+// Storage Keys
+const STORAGE_KEYS = {
+  AUTH: "manbhar_admin_auth",
+  PASSWORD: "manbhar_admin_password",
+  SUPABASE_CFG: "manbhar_supabase_config",
+  PRODUCTS: "manbhar_products",
+  CATEGORIES: "manbhar_categories",
+  SITE_SETTINGS: "manbhar_site_settings"
+};
+
+// Default Site & Hero Settings
+const DEFAULT_SITE_SETTINGS = {
+  hero: {
+    tagline: "Tradition. Style. Comfort.",
+    title: "MEN KURTA",
+    subtitle: "Ethnic wear for every occasion",
+    occasions: ["Festive", "Wedding", "Casual", "Everyday"],
+    startingPrice: 799,
+    autoMinPrice: false,
+    ctaText: "Shop Now",
+    ctaScrollTarget: "#products",
+    bgImage: ""
+  },
+  contacts: {
+    displayPhone: "+91 93218 03696",
+    phone: "919321803696",
+    mapsUrl: "https://maps.app.goo.gl/jEg8beEL2Htdr6rZ9",
+    instagramUrl: "https://www.instagram.com/manbhar_creation",
+    address: "Shop No. 14, Royal Heritage Arcade, MG Road, Pune, Maharashtra 411001",
+    timings: "Mon - Sun: 10:30 AM to 9:30 PM"
+  },
+  features: [
+    "Premium cotton blend",
+    "Breathable & comfortable",
+    "Stylish designs",
+    "Durable fabric",
+    "Trusted quality"
+  ],
+  footerTagline: "Crafted for traditional elegance & timeless festive celebrations."
+};
+
+// Default Admin Password
+const DEFAULT_PASSWORD = "manbhar123";
+
+// Default Categories template
+const DEFAULT_CATEGORIES = [
+  {
+    id: "casual",
+    name: "Casual",
+    tagline: "Effortless everyday ethnic comfort in pure breathable cotton",
+    startingPrice: 699,
+    image: "assets/logo.png"
+  },
+  {
+    id: "short",
+    name: "Short",
+    tagline: "Modern straight-cut short kurtas, perfect with denim and chinos",
+    startingPrice: 799,
+    image: "assets/logo.png"
+  },
+  {
+    id: "embroidered",
+    name: "Embroidered",
+    tagline: "Intricate threadwork & Lucknowi chikankari for refined elegance",
+    startingPrice: 1299,
+    image: "assets/logo.png"
+  },
+  {
+    id: "festive",
+    name: "Festive",
+    tagline: "Vibrant royal tones, jacquard weaves and celebratory luster",
+    startingPrice: 1499,
+    image: "assets/logo.png"
+  },
+  {
+    id: "wedding",
+    name: "Wedding",
+    tagline: "Regal sherwani kurtas, silk blends & brocade for celebrations",
+    startingPrice: 1999,
+    image: "assets/logo.png"
+  }
+];
+
+// State
+let supabaseClient = null;
+let currentProducts = [];
+let currentCategories = [];
+let currentFormImages = []; // Array of URL strings for current product form
+let currentSiteSettings = JSON.parse(JSON.stringify(DEFAULT_SITE_SETTINGS));
+
+/**
+ * Toast Notification
+ */
+function showToast(msg, duration = 3000) {
+  const toast = document.getElementById("adminToast");
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.classList.add("show");
+  setTimeout(() => {
+    toast.classList.remove("show");
+  }, duration);
+}
+
+/**
+ * Switch Navigation Tab
+ */
+function switchTab(tabId) {
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    if (btn.getAttribute("data-tab") === tabId) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+
+  document.querySelectorAll(".tab-pane").forEach(pane => {
+    if (pane.id === tabId) {
+      pane.classList.add("active");
+    } else {
+      pane.classList.remove("active");
+    }
+  });
+}
+window.switchTab = switchTab;
+
+/**
+ * ----------------------------------------------------------------------------
+ * 1. AUTHENTICATION & LOGIN
+ * ----------------------------------------------------------------------------
+ */
+function initAuth() {
+  const loginScreen = document.getElementById("loginScreen");
+  const adminDashboard = document.getElementById("adminDashboard");
+  const loginForm = document.getElementById("loginForm");
+  const adminPassword = document.getElementById("adminPassword");
+  const loginError = document.getElementById("loginError");
+  const togglePasswordBtn = document.getElementById("togglePasswordBtn");
+  const logoutBtn = document.getElementById("logoutBtn");
+
+  // Check saved session
+  if (sessionStorage.getItem(STORAGE_KEYS.AUTH) === "true") {
+    loginScreen.style.display = "none";
+    adminDashboard.style.display = "block";
+    loadDashboard();
+  } else {
+    loginScreen.style.display = "flex";
+    adminDashboard.style.display = "none";
+  }
+
+  // Toggle eye visibility
+  if (togglePasswordBtn) {
+    togglePasswordBtn.addEventListener("click", () => {
+      const type = adminPassword.getAttribute("type") === "password" ? "text" : "password";
+      adminPassword.setAttribute("type", type);
+      togglePasswordBtn.textContent = type === "password" ? "👁" : "🔒";
+    });
+  }
+
+  // Submit password
+  if (loginForm) {
+    loginForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const entered = adminPassword.value.trim();
+      const actual = localStorage.getItem(STORAGE_KEYS.PASSWORD) || DEFAULT_PASSWORD;
+
+      if (entered === actual) {
+        sessionStorage.setItem(STORAGE_KEYS.AUTH, "true");
+        loginScreen.style.display = "none";
+        adminDashboard.style.display = "block";
+        loadDashboard();
+        showToast("Welcome to ManBhar Creation Admin Portal!");
+      } else {
+        loginError.textContent = "Invalid password. Please try again.";
+        loginError.style.display = "block";
+      }
+    });
+  }
+
+  // Logout
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+      sessionStorage.removeItem(STORAGE_KEYS.AUTH);
+      loginScreen.style.display = "flex";
+      adminDashboard.style.display = "none";
+      adminPassword.value = "";
+    });
+  }
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 2. DATA LAYER (SUPABASE + LOCALSTORAGE)
+ * ----------------------------------------------------------------------------
+ */
+function initSupabase() {
+  const savedCfg = localStorage.getItem(STORAGE_KEYS.SUPABASE_CFG);
+  const dot = document.getElementById("syncStatusDot");
+  const text = document.getElementById("syncStatusText");
+  const btnDisconnect = document.getElementById("btnDisconnectSupabase");
+
+  if (savedCfg) {
+    try {
+      const cfg = JSON.parse(savedCfg);
+      if (cfg.url && cfg.key && window.supabase) {
+        supabaseClient = window.supabase.createClient(cfg.url, cfg.key);
+        if (dot) dot.classList.add("connected");
+        if (text) text.textContent = "Storage: Connected to Supabase Cloud";
+        if (btnDisconnect) btnDisconnect.style.display = "inline-flex";
+        return;
+      }
+    } catch (err) {
+      console.warn("Invalid Supabase config:", err);
+    }
+  }
+
+  // Fallback to local
+  supabaseClient = null;
+  if (dot) dot.classList.remove("connected");
+  if (text) text.textContent = "Storage: Local Storage Mode (Ready to connect Supabase)";
+  if (btnDisconnect) btnDisconnect.style.display = "none";
+}
+
+async function fetchProducts() {
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from("products")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (!error && data) {
+        currentProducts = data;
+        // Backup to local
+        localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(data));
+        return data;
+      }
+    } catch (err) {
+      console.warn("Supabase fetch failed, falling back to local:", err);
+    }
+  }
+
+  // Local storage fallback
+  const raw = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
+  currentProducts = raw ? JSON.parse(raw) : [];
+  return currentProducts;
+}
+
+async function persistProduct(productData) {
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from("products")
+        .upsert(productData);
+      if (error) throw error;
+    } catch (err) {
+      console.error("Supabase upsert failed:", err);
+      showToast("Cloud sync failed. Saved to Local Storage.");
+    }
+  }
+
+  // Update in-memory & local storage
+  const existingIdx = currentProducts.findIndex(p => p.id === productData.id);
+  if (existingIdx >= 0) {
+    currentProducts[existingIdx] = productData;
+  } else {
+    currentProducts.unshift(productData);
+  }
+  localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(currentProducts));
+}
+
+async function removeProduct(productId) {
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from("products").delete().eq("id", productId);
+    } catch (err) {
+      console.error("Supabase delete failed:", err);
+    }
+  }
+
+  currentProducts = currentProducts.filter(p => p.id !== productId);
+  localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(currentProducts));
+}
+
+async function fetchCategories() {
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient.from("categories").select("*");
+      if (!error && data && data.length > 0) {
+        currentCategories = data;
+        localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(data));
+        return data;
+      }
+    } catch (err) {
+      console.warn("Supabase categories fetch failed:", err);
+    }
+  }
+
+  const raw = localStorage.getItem(STORAGE_KEYS.CATEGORIES);
+  currentCategories = raw ? JSON.parse(raw) : DEFAULT_CATEGORIES;
+  return currentCategories;
+}
+
+async function persistCategory(catData) {
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from("categories").upsert(catData);
+    } catch (err) {
+      console.error("Supabase category upsert failed:", err);
+    }
+  }
+
+  const idx = currentCategories.findIndex(c => c.id === catData.id);
+  if (idx >= 0) {
+    currentCategories[idx] = catData;
+  } else {
+    currentCategories.push(catData);
+  }
+  localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(currentCategories));
+}
+
+function isObject(item) {
+  return (item && typeof item === "object" && !Array.isArray(item));
+}
+
+function deepMerge(target, source) {
+  const output = Object.assign({}, target);
+  if (isObject(target) && isObject(source)) {
+    Object.keys(source).forEach(key => {
+      if (isObject(source[key])) {
+        if (!(key in target)) Object.assign(output, { [key]: source[key] });
+        else output[key] = deepMerge(target[key], source[key]);
+      } else {
+        Object.assign(output, { [key]: source[key] });
+      }
+    });
+  }
+  return output;
+}
+
+async function fetchSiteSettings() {
+  if (supabaseClient) {
+    try {
+      const { data, error } = await supabaseClient
+        .from("settings")
+        .select("value")
+        .eq("key", "site_settings")
+        .single();
+      if (!error && data && data.value) {
+        currentSiteSettings = deepMerge(DEFAULT_SITE_SETTINGS, data.value);
+        localStorage.setItem(STORAGE_KEYS.SITE_SETTINGS, JSON.stringify(currentSiteSettings));
+        return currentSiteSettings;
+      }
+    } catch (err) {
+      console.warn("Supabase fetch site_settings failed, using local:", err);
+    }
+  }
+
+  const raw = localStorage.getItem(STORAGE_KEYS.SITE_SETTINGS);
+  if (raw) {
+    try {
+      currentSiteSettings = deepMerge(DEFAULT_SITE_SETTINGS, JSON.parse(raw));
+    } catch (e) {
+      currentSiteSettings = JSON.parse(JSON.stringify(DEFAULT_SITE_SETTINGS));
+    }
+  } else {
+    currentSiteSettings = JSON.parse(JSON.stringify(DEFAULT_SITE_SETTINGS));
+  }
+  return currentSiteSettings;
+}
+
+async function persistSiteSettings(settingsObj) {
+  currentSiteSettings = settingsObj;
+  localStorage.setItem(STORAGE_KEYS.SITE_SETTINGS, JSON.stringify(settingsObj));
+
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from("settings").upsert({
+        key: "site_settings",
+        value: settingsObj
+      });
+    } catch (err) {
+      console.error("Supabase settings upsert failed:", err);
+    }
+  }
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 3. AUTO WEBP CLIENT-SIDE COMPRESSION & IMAGE UPLOAD
+ * ----------------------------------------------------------------------------
+ */
+function compressImageToWebP(file, maxDimension = 1200, quality = 0.85) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Try to export as WebP
+        canvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            // Fallback to JPEG if browser doesn't support WebP export
+            canvas.toBlob((jpgBlob) => {
+              resolve(jpgBlob);
+            }, "image/jpeg", quality);
+          }
+        }, "image/webp", quality);
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function uploadFile(file, index, total) {
+  const progressBar = document.getElementById("progressBar");
+  const progressText = document.getElementById("progressText");
+  const progressWrap = document.getElementById("uploadProgress");
+
+  if (progressWrap) progressWrap.style.display = "block";
+  if (progressText) progressText.textContent = `Auto WebP Compressing photo ${index + 1} of ${total}...`;
+  if (progressBar) progressBar.style.width = `${Math.round(((index + 0.5) / total) * 100)}%`;
+
+  // 1. Compress to WebP in browser
+  const compressedBlob = await compressImageToWebP(file);
+
+  // 2. Upload to Supabase Storage if connected
+  if (supabaseClient) {
+    try {
+      const fileName = `kurta_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.webp`;
+      const { data, error } = await supabaseClient.storage
+        .from("product-images")
+        .upload(fileName, compressedBlob, {
+          contentType: "image/webp",
+          upsert: false
+        });
+
+      if (!error && data) {
+        const { data: publicUrlData } = supabaseClient.storage
+          .from("product-images")
+          .getPublicUrl(fileName);
+        return publicUrlData.publicUrl;
+      }
+    } catch (err) {
+      console.warn("Supabase storage upload error, saving data URL:", err);
+    }
+  }
+
+  // Fallback: Return Base64 WebP Data URL
+  return await blobToDataUrl(compressedBlob);
+}
+
+function renderPhotoPreviews() {
+  const container = document.getElementById("photoPreviewsGrid");
+  if (!container) return;
+
+  if (currentFormImages.length === 0) {
+    container.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; color: var(--admin-text-muted); padding: 0.5rem; font-size: 0.8rem;">
+        No photos added yet. Select photos above.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = currentFormImages.map((imgUrl, idx) => `
+    <div class="preview-card" data-index="${idx}">
+      <img src="${imgUrl}" alt="Photo ${idx + 1}" class="preview-img">
+      ${idx === 0 ? `<span class="cover-badge">★ Cover</span>` : ""}
+      <div class="preview-actions">
+        ${idx > 0 ? `<button type="button" class="btn-preview-action" onclick="movePhoto(${idx}, -1)" title="Move left">←</button>` : `<span></span>`}
+        <button type="button" class="btn-preview-action btn-preview-del" onclick="deletePhoto(${idx})" title="Delete photo">✕</button>
+        ${idx < currentFormImages.length - 1 ? `<button type="button" class="btn-preview-action" onclick="movePhoto(${idx}, 1)" title="Move right">→</button>` : `<span></span>`}
+      </div>
+    </div>
+  `).join("");
+}
+
+window.movePhoto = function(index, direction) {
+  const target = index + direction;
+  if (target < 0 || target >= currentFormImages.length) return;
+  const temp = currentFormImages[index];
+  currentFormImages[index] = currentFormImages[target];
+  currentFormImages[target] = temp;
+  renderPhotoPreviews();
+};
+
+window.deletePhoto = function(index) {
+  currentFormImages.splice(index, 1);
+  renderPhotoPreviews();
+};
+
+function initPhotoUpload() {
+  const dropZone = document.getElementById("dropZone");
+  const photoInput = document.getElementById("photoInput");
+  const progressWrap = document.getElementById("uploadProgress");
+  const progressBar = document.getElementById("progressBar");
+
+  if (!dropZone || !photoInput) return;
+
+  async function handleFiles(files) {
+    if (!files || files.length === 0) return;
+    const fileList = Array.from(files);
+
+    for (let i = 0; i < fileList.length; i++) {
+      try {
+        const url = await uploadFile(fileList[i], i, fileList.length);
+        currentFormImages.push(url);
+      } catch (err) {
+        console.error("Compression/Upload error:", err);
+      }
+    }
+
+    if (progressBar) progressBar.style.width = "100%";
+    setTimeout(() => {
+      if (progressWrap) progressWrap.style.display = "none";
+      if (progressBar) progressBar.style.width = "0%";
+    }, 400);
+
+    renderPhotoPreviews();
+    showToast(`Added ${fileList.length} photo(s) in compressed WebP format.`);
+  }
+
+  photoInput.addEventListener("change", (e) => {
+    handleFiles(e.target.files);
+    photoInput.value = ""; // Reset for re-selection
+  });
+
+  // Drag and drop events
+  ["dragenter", "dragover"].forEach(evt => {
+    dropZone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      dropZone.classList.add("dragover");
+    });
+  });
+
+  ["dragleave", "drop"].forEach(evt => {
+    dropZone.addEventListener(evt, (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("dragover");
+    });
+  });
+
+  dropZone.addEventListener("drop", (e) => {
+    const dt = e.dataTransfer;
+    if (dt && dt.files) {
+      handleFiles(dt.files);
+    }
+  });
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 4. ADD / EDIT PRODUCT FORM
+ * ----------------------------------------------------------------------------
+ */
+function initProductForm() {
+  const form = document.getElementById("productForm");
+  const cancelBtn = document.getElementById("cancelEditBtn");
+
+  if (!form) return;
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const editId = document.getElementById("editProductId").value;
+    const name = document.getElementById("prodName").value.trim();
+    const category = document.getElementById("prodCategory").value;
+    const price = parseFloat(document.getElementById("prodPrice").value);
+    const originalPriceInput = document.getElementById("prodOriginalPrice").value;
+    const originalPrice = originalPriceInput ? parseFloat(originalPriceInput) : null;
+    const badge = document.getElementById("prodBadge").value.trim() || null;
+    const description = document.getElementById("prodDesc").value.trim() || null;
+
+    if (currentFormImages.length === 0) {
+      alert("Please upload at least one photo for this kurta.");
+      return;
+    }
+
+    // Collect sizes & individual stock counts
+    const availableSizes = [];
+    const stockMap = {};
+    const sizeKeys = ["S", "M", "L", "XL", "XXL"];
+
+    sizeKeys.forEach(sz => {
+      const chk = document.getElementById(`size_${sz}`);
+      const qtyInput = document.getElementById(`stock_${sz}`);
+      if (chk && chk.checked) {
+        availableSizes.push(sz);
+        stockMap[sz] = Math.max(0, parseInt(qtyInput.value) || 0);
+      } else {
+        stockMap[sz] = 0;
+      }
+    });
+
+    if (availableSizes.length === 0) {
+      alert("Please select at least one available size.");
+      return;
+    }
+
+    // Check if totally out of stock
+    const totalStock = Object.values(stockMap).reduce((acc, v) => acc + v, 0);
+    const isOutOfStock = totalStock === 0;
+
+    const saveBtn = document.getElementById("saveProductBtn");
+    if (saveBtn) saveBtn.disabled = true;
+
+    const prodId = editId || `kurta-${Date.now()}`;
+    const productRecord = {
+      id: prodId,
+      name,
+      category,
+      price,
+      original_price: originalPrice,
+      originalPrice: originalPrice, // camelCase alias for frontend
+      badge,
+      image: currentFormImages[0], // primary cover
+      images: currentFormImages,
+      sizes: availableSizes,
+      stock: stockMap,
+      is_out_of_stock: isOutOfStock,
+      description,
+      created_at: new Date().toISOString()
+    };
+
+    try {
+      await persistProduct(productRecord);
+      showToast(editId ? "Kurta updated successfully!" : "New Kurta added to website!");
+      resetForm();
+      renderProductsList();
+      switchTab("tab-products");
+    } catch (err) {
+      alert("Error saving product: " + err.message);
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+    }
+  });
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => {
+      resetForm();
+    });
+  }
+}
+
+function resetForm() {
+  const form = document.getElementById("productForm");
+  if (form) form.reset();
+  document.getElementById("editProductId").value = "";
+  document.getElementById("formHeaderTitle").textContent = "Add New Kurta";
+  document.getElementById("formTabTitle").textContent = "Add Product";
+  document.getElementById("saveBtnText").textContent = "Save & Publish Kurta";
+  document.getElementById("cancelEditBtn").style.display = "none";
+  currentFormImages = [];
+  renderPhotoPreviews();
+
+  // Reset sizes checkboxes and default quantities
+  const defaults = { S: 5, M: 10, L: 8, XL: 4, XXL: 2 };
+  Object.keys(defaults).forEach(sz => {
+    const chk = document.getElementById(`size_${sz}`);
+    const inp = document.getElementById(`stock_${sz}`);
+    if (chk) chk.checked = true;
+    if (inp) inp.value = defaults[sz];
+  });
+}
+
+window.editProduct = function(productId) {
+  const p = currentProducts.find(item => item.id === productId);
+  if (!p) return;
+
+  document.getElementById("editProductId").value = p.id;
+  document.getElementById("prodName").value = p.name;
+  document.getElementById("prodCategory").value = p.category;
+  document.getElementById("prodPrice").value = p.price;
+  document.getElementById("prodOriginalPrice").value = p.originalPrice || p.original_price || "";
+  document.getElementById("prodBadge").value = p.badge || "";
+  document.getElementById("prodDesc").value = p.description || "";
+
+  // Images
+  currentFormImages = p.images && p.images.length > 0 ? [...p.images] : [p.image];
+  renderPhotoPreviews();
+
+  // Sizes & Stock
+  const sizeKeys = ["S", "M", "L", "XL", "XXL"];
+  sizeKeys.forEach(sz => {
+    const chk = document.getElementById(`size_${sz}`);
+    const inp = document.getElementById(`stock_${sz}`);
+    const isAvail = p.sizes ? p.sizes.includes(sz) : false;
+    const stockQty = p.stock && p.stock[sz] !== undefined ? p.stock[sz] : 0;
+
+    if (chk) chk.checked = isAvail;
+    if (inp) inp.value = stockQty;
+  });
+
+  document.getElementById("formHeaderTitle").textContent = "Edit Kurta Details";
+  document.getElementById("formTabTitle").textContent = "Editing Kurta";
+  document.getElementById("saveBtnText").textContent = "Update Kurta";
+  document.getElementById("cancelEditBtn").style.display = "inline-flex";
+
+  switchTab("tab-add");
+};
+
+window.confirmDeleteProduct = async function(productId) {
+  const p = currentProducts.find(item => item.id === productId);
+  if (!p) return;
+
+  if (confirm(`Are you sure you want to delete "${p.name}"? This cannot be undone.`)) {
+    await removeProduct(productId);
+    renderProductsList();
+    showToast("Kurta deleted from catalog.");
+  }
+};
+
+window.toggleOutOfStock = async function(productId, isChecked) {
+  const p = currentProducts.find(item => item.id === productId);
+  if (!p) return;
+
+  p.is_out_of_stock = isChecked;
+  await persistProduct(p);
+  renderProductsList();
+  showToast(isChecked ? "Marked Out of Stock." : "Marked In Stock.");
+};
+
+/**
+ * ----------------------------------------------------------------------------
+ * 5. PRODUCTS LIST
+ * ----------------------------------------------------------------------------
+ */
+function renderProductsList() {
+  const container = document.getElementById("adminProductsContainer");
+  const countEl = document.getElementById("totalProductsCount");
+  const searchInput = document.getElementById("adminSearchInput");
+  const catFilter = document.getElementById("adminCategoryFilter");
+
+  if (!container) return;
+
+  const query = searchInput ? searchInput.value.toLowerCase().trim() : "";
+  const cat = catFilter ? catFilter.value : "all";
+
+  let filtered = [...currentProducts];
+
+  if (cat !== "all") {
+    filtered = filtered.filter(p => p.category === cat);
+  }
+
+  if (query) {
+    filtered = filtered.filter(p => 
+      p.name.toLowerCase().includes(query) || 
+      p.category.toLowerCase().includes(query) ||
+      (p.badge && p.badge.toLowerCase().includes(query))
+    );
+  }
+
+  if (countEl) countEl.textContent = currentProducts.length;
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 3rem 1rem; background: #fff; border-radius: 8px; border: 1.5px dashed var(--admin-border);">
+        <p style="font-family: var(--font-serif); font-size: 1.2rem; color: var(--admin-maroon); margin-bottom: 0.5rem;">
+          ${currentProducts.length === 0 ? "No Kurtas Added Yet" : "No matching kurtas found"}
+        </p>
+        <p style="color: var(--admin-text-muted); font-size: 0.85rem; margin-bottom: 1.25rem;">
+          ${currentProducts.length === 0 ? "Click 'Add Product' above to publish your first kurta to the store!" : "Try changing search terms or category filter."}
+        </p>
+        <button class="btn-admin-primary" onclick="switchTab('tab-add')">+ Add Your First Kurta</button>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered.map(p => {
+    const isOut = p.is_out_of_stock;
+    const coverPhoto = (p.images && p.images[0]) || p.image || "assets/logo.png";
+    const originalPrice = p.originalPrice || p.original_price;
+
+    // Stock badges per size
+    const sizesHtml = (p.sizes || []).map(sz => {
+      const qty = p.stock && p.stock[sz] !== undefined ? p.stock[sz] : 0;
+      const isZero = qty === 0;
+      return `<span class="size-stock-badge ${isZero ? 'zero' : ''}">${sz}: ${qty}</span>`;
+    }).join("");
+
+    return `
+      <div class="admin-product-row ${isOut ? 'is-out-of-stock' : ''}" id="row-${p.id}">
+        <div class="prod-main-info">
+          <div class="prod-thumb-wrap">
+            <img src="${coverPhoto}" alt="${p.name}" class="prod-thumb-img" onerror="this.src='assets/logo.png'">
+          </div>
+          <div class="prod-meta">
+            <h4 class="prod-meta-title">${p.name}</h4>
+            <span class="prod-meta-cat">${p.category} ${p.badge ? `• <span style="color:var(--admin-maroon); font-weight:bold;">${p.badge}</span>` : ""}</span>
+            <div class="prod-meta-price">
+              <span>₹${p.price}</span>
+              ${originalPrice ? `<span class="prod-meta-original">₹${originalPrice}</span>` : ""}
+            </div>
+            <div class="prod-sizes-summary">
+              ${sizesHtml}
+            </div>
+          </div>
+        </div>
+
+        <div class="prod-row-actions">
+          <label class="toggle-stock-wrap" title="Toggle product out of stock">
+            <span>In Stock:</span>
+            <label class="switch">
+              <input type="checkbox" ${!isOut ? 'checked' : ''} onchange="toggleOutOfStock('${p.id}', !this.checked)">
+              <span class="slider"></span>
+            </label>
+          </label>
+
+          <button type="button" class="btn-edit-prod" onclick="editProduct('${p.id}')">✏️ Edit</button>
+          <button type="button" class="btn-del-prod" onclick="confirmDeleteProduct('${p.id}')">🗑️ Delete</button>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function initSearchAndFilter() {
+  const searchInput = document.getElementById("adminSearchInput");
+  const catFilter = document.getElementById("adminCategoryFilter");
+
+  if (searchInput) {
+    searchInput.addEventListener("input", () => renderProductsList());
+  }
+  if (catFilter) {
+    catFilter.addEventListener("change", () => renderProductsList());
+  }
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 6. CATEGORY BANNERS EDITOR
+ * ----------------------------------------------------------------------------
+ */
+function renderCategoryCardsEditor() {
+  const container = document.getElementById("categoryCardsEditor");
+  if (!container) return;
+
+  container.innerHTML = currentCategories.map(cat => `
+    <div class="cat-edit-card" id="cat-card-${cat.id}">
+      <div class="cat-edit-preview-wrap">
+        <img src="${cat.image || 'assets/logo.png'}" alt="${cat.name}" id="cat-img-${cat.id}" class="cat-edit-img">
+      </div>
+      
+      <div>
+        <h4 style="font-family: var(--font-serif); font-size: 1.15rem; color: var(--admin-maroon); margin-bottom: 0.2rem;">${cat.name} Kurta</h4>
+        <p style="font-size: 0.78rem; color: var(--admin-text-muted); margin-bottom: 0.75rem;">${cat.tagline}</p>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0.5rem;">
+        <label class="form-label" style="font-size: 0.8rem;">Cover Photo</label>
+        <input type="file" accept="image/*" class="form-input" style="padding: 0.4rem;" onchange="handleCategoryPhotoChange('${cat.id}', this.files[0])">
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0.5rem;">
+        <label class="form-label" style="font-size: 0.8rem;">Starting at Price (₹)</label>
+        <input type="number" id="cat-price-${cat.id}" class="form-input" value="${cat.startingPrice}" min="1">
+      </div>
+
+      <button type="button" class="btn-admin-primary" style="margin-top: auto;" onclick="saveCategoryCard('${cat.id}')">Save ${cat.name} Banner</button>
+    </div>
+  `).join("");
+}
+
+window.handleCategoryPhotoChange = async function(catId, file) {
+  if (!file) return;
+  const compressed = await compressImageToWebP(file, 800, 0.85);
+  let finalUrl = "";
+
+  if (supabaseClient) {
+    try {
+      const fileName = `cat_${catId}_${Date.now()}.webp`;
+      const { data, error } = await supabaseClient.storage
+        .from("product-images")
+        .upload(fileName, compressed, { contentType: "image/webp", upsert: true });
+      if (!error && data) {
+        const { data: pubUrl } = supabaseClient.storage.from("product-images").getPublicUrl(fileName);
+        finalUrl = pubUrl.publicUrl;
+      }
+    } catch (err) {
+      console.warn("Storage upload failed, using data URL:", err);
+    }
+  }
+
+  if (!finalUrl) {
+    finalUrl = await blobToDataUrl(compressed);
+  }
+
+  const preview = document.getElementById(`cat-img-${catId}`);
+  if (preview) preview.src = finalUrl;
+
+  const cat = currentCategories.find(c => c.id === catId);
+  if (cat) cat.image = finalUrl;
+};
+
+window.saveCategoryCard = async function(catId) {
+  const cat = currentCategories.find(c => c.id === catId);
+  if (!cat) return;
+
+  const priceInput = document.getElementById(`cat-price-${catId}`);
+  if (priceInput) cat.startingPrice = parseFloat(priceInput.value) || cat.startingPrice;
+
+  await persistCategory(cat);
+  showToast(`Updated "${cat.name}" category banner!`);
+};
+
+/**
+ * ----------------------------------------------------------------------------
+ * 7. SETTINGS & CLOUD CONFIGURATION
+ * ----------------------------------------------------------------------------
+ */
+function initSettings() {
+  const urlInput = document.getElementById("cfgSupabaseUrl");
+  const keyInput = document.getElementById("cfgSupabaseKey");
+  const testBtn = document.getElementById("btnTestSupabase");
+  const disconnectBtn = document.getElementById("btnDisconnectSupabase");
+  const statusMsg = document.getElementById("supabaseStatusMsg");
+
+  // Populate saved credentials if any
+  const saved = localStorage.getItem(STORAGE_KEYS.SUPABASE_CFG);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (urlInput) urlInput.value = parsed.url || "";
+      if (keyInput) keyInput.value = parsed.key || "";
+    } catch (e) {}
+  }
+
+  if (testBtn) {
+    testBtn.addEventListener("click", async () => {
+      const url = urlInput.value.trim();
+      const key = keyInput.value.trim();
+
+      if (!url || !key) {
+        statusMsg.className = "supabase-status-msg error";
+        statusMsg.textContent = "Please enter both Project URL and Anon Key.";
+        statusMsg.style.display = "block";
+        return;
+      }
+
+      statusMsg.className = "supabase-status-msg";
+      statusMsg.textContent = "Connecting and verifying Supabase tables...";
+      statusMsg.style.display = "block";
+
+      try {
+        if (!window.supabase) {
+          throw new Error("Supabase library not loaded. Check internet connection.");
+        }
+        const client = window.supabase.createClient(url, key);
+        const { data, error } = await client.from("products").select("id").limit(1);
+
+        if (error) throw error;
+
+        // Save valid config
+        localStorage.setItem(STORAGE_KEYS.SUPABASE_CFG, JSON.stringify({ url, key }));
+        supabaseClient = client;
+        initSupabase();
+
+        statusMsg.className = "supabase-status-msg success";
+        statusMsg.textContent = "✅ Connected to Supabase Cloud! Products will now sync in realtime across all devices.";
+        showToast("Supabase connected!");
+        loadDashboard();
+      } catch (err) {
+        statusMsg.className = "supabase-status-msg error";
+        statusMsg.textContent = "❌ Connection failed: " + err.message + ". Did you run the SQL script in Supabase SQL editor?";
+      }
+    });
+  }
+
+  if (disconnectBtn) {
+    disconnectBtn.addEventListener("click", () => {
+      if (confirm("Disconnect Supabase and switch back to Local Storage?")) {
+        localStorage.removeItem(STORAGE_KEYS.SUPABASE_CFG);
+        initSupabase();
+        statusMsg.style.display = "none";
+        showToast("Switched to Local Storage.");
+        loadDashboard();
+      }
+    });
+  }
+
+  // Change Password
+  const changePassBtn = document.getElementById("btnChangePassword");
+  const newPass = document.getElementById("newAdminPassword");
+  const confPass = document.getElementById("confirmAdminPassword");
+  const passMsg = document.getElementById("passwordChangeMsg");
+
+  if (changePassBtn) {
+    changePassBtn.addEventListener("click", () => {
+      const n = newPass.value.trim();
+      const c = confPass.value.trim();
+
+      if (!n || n.length < 6) {
+        passMsg.className = "password-msg error";
+        passMsg.textContent = "Password must be at least 6 characters long.";
+        passMsg.style.display = "block";
+        return;
+      }
+
+      if (n !== c) {
+        passMsg.className = "password-msg error";
+        passMsg.textContent = "Passwords do not match.";
+        passMsg.style.display = "block";
+        return;
+      }
+
+      localStorage.setItem(STORAGE_KEYS.PASSWORD, n);
+      passMsg.className = "password-msg success";
+      passMsg.textContent = "✅ Admin password updated successfully!";
+      passMsg.style.display = "block";
+      newPass.value = "";
+      confPass.value = "";
+      showToast("Password updated!");
+    });
+  }
+
+  // Export JSON
+  const exportBtn = document.getElementById("btnExportData");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", () => {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(currentProducts, null, 2));
+      const a = document.createElement("a");
+      a.setAttribute("href", dataStr);
+      a.setAttribute("download", `manbhar_kurtas_backup_${Date.now()}.json`);
+      a.click();
+    });
+  }
+
+  // Reset Local Data
+  const clearBtn = document.getElementById("btnClearLocalData");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      if (confirm("Are you sure you want to clear all products in Local Storage?")) {
+        localStorage.removeItem(STORAGE_KEYS.PRODUCTS);
+        currentProducts = [];
+        renderProductsList();
+        showToast("Local catalog cleared.");
+      }
+    });
+  }
+
+  // Quick Settings button in top status bar
+  const quickBtn = document.getElementById("quickSettingsBtn");
+  if (quickBtn) {
+    quickBtn.addEventListener("click", () => switchTab("tab-settings"));
+  }
+
+  // Populate & wire Store Location, Google Maps & Instagram Settings
+  populateStoreSettingsInputs();
+
+  const btnSaveLinks = document.getElementById("btnSaveStoreLinks");
+  if (btnSaveLinks) {
+    btnSaveLinks.addEventListener("click", async () => {
+      const mapsUrl = (document.getElementById("cfgMapsUrl")?.value || "").trim();
+      const rawInsta = (document.getElementById("cfgInstagramUrl")?.value || "").trim();
+      const instaUrl = cleanInstagramUrl(rawInsta);
+      const address = (document.getElementById("cfgStoreAddress")?.value || "").trim();
+      const timings = (document.getElementById("cfgStoreTimings")?.value || "").trim();
+
+      if (!currentSiteSettings.contacts) currentSiteSettings.contacts = {};
+      currentSiteSettings.contacts.mapsUrl = mapsUrl;
+      currentSiteSettings.contacts.instagramUrl = instaUrl;
+      currentSiteSettings.contacts.address = address;
+      currentSiteSettings.contacts.timings = timings;
+
+      populateStoreSettingsInputs();
+
+      await persistSiteSettings(currentSiteSettings);
+      showToast("✅ Store location, Google Maps & Instagram links saved!");
+    });
+  }
+
+  const btnResetLinks = document.getElementById("btnResetStoreLinks");
+  if (btnResetLinks) {
+    btnResetLinks.addEventListener("click", async () => {
+      if (confirm("Reset store location, Google Maps and Instagram links to defaults?")) {
+        const d = DEFAULT_SITE_SETTINGS.contacts;
+        if (!currentSiteSettings.contacts) currentSiteSettings.contacts = {};
+        currentSiteSettings.contacts.mapsUrl = d.mapsUrl;
+        currentSiteSettings.contacts.instagramUrl = d.instagramUrl;
+        currentSiteSettings.contacts.address = d.address;
+        currentSiteSettings.contacts.timings = d.timings;
+
+        populateStoreSettingsInputs();
+        await persistSiteSettings(currentSiteSettings);
+        showToast("↺ Store location and links reset to default values.");
+      }
+    });
+  }
+}
+
+function cleanInstagramUrl(url) {
+  if (!url) return "";
+  const trimmed = url.trim();
+  if (trimmed.includes("instagram.com")) {
+    return trimmed.split("?")[0];
+  }
+  return trimmed;
+}
+
+function populateStoreSettingsInputs() {
+  const contacts = currentSiteSettings.contacts || DEFAULT_SITE_SETTINGS.contacts;
+  const mapsInput = document.getElementById("cfgMapsUrl");
+  if (mapsInput) mapsInput.value = contacts.mapsUrl || "";
+
+  const instaInput = document.getElementById("cfgInstagramUrl");
+  if (instaInput) instaInput.value = contacts.instagramUrl || "";
+
+  const addrInput = document.getElementById("cfgStoreAddress");
+  if (addrInput) addrInput.value = contacts.address || "";
+
+  const timeInput = document.getElementById("cfgStoreTimings");
+  if (timeInput) timeInput.value = contacts.timings || "";
+
+  // Also sync hero tab inputs if present
+  const heroMaps = document.getElementById("contactMapsUrl");
+  if (heroMaps) heroMaps.value = contacts.mapsUrl || "";
+
+  const heroInsta = document.getElementById("contactInstagramUrl");
+  if (heroInsta) heroInsta.value = contacts.instagramUrl || "";
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 7B. HERO BANNER & STORE SETTINGS CONTROLLER
+ * ----------------------------------------------------------------------------
+ */
+function escapeHtml(str) {
+  if (str === undefined || str === null) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function renderOccasionTagsList() {
+  const container = document.getElementById("occasionTagsList");
+  if (!container) return;
+
+  const occasions = currentSiteSettings.hero.occasions || [];
+  if (occasions.length === 0) {
+    container.innerHTML = `<span style="font-size: 0.8rem; color: var(--admin-text-muted);">No occasion tags. Type above and click "+ Add" to add tags.</span>`;
+    return;
+  }
+
+  container.innerHTML = occasions.map((tag, idx) => `
+    <span class="tag-chip">
+      <span>${escapeHtml(tag)}</span>
+      <span class="tag-chip-actions">
+        ${idx > 0 ? `<button type="button" class="btn-tag-chip" onclick="moveOccasionTag(${idx}, -1)" title="Move Left">◀</button>` : ""}
+        ${idx < occasions.length - 1 ? `<button type="button" class="btn-tag-chip" onclick="moveOccasionTag(${idx}, 1)" title="Move Right">▶</button>` : ""}
+        <button type="button" class="btn-tag-chip btn-tag-del" onclick="deleteOccasionTag(${idx})" title="Remove Tag">✕</button>
+      </span>
+    </span>
+  `).join("");
+}
+
+window.moveOccasionTag = function(idx, dir) {
+  const arr = currentSiteSettings.hero.occasions;
+  const target = idx + dir;
+  if (target < 0 || target >= arr.length) return;
+  const temp = arr[idx];
+  arr[idx] = arr[target];
+  arr[target] = temp;
+  renderOccasionTagsList();
+  updateLiveHeroPreview();
+};
+
+window.deleteOccasionTag = function(idx) {
+  currentSiteSettings.hero.occasions.splice(idx, 1);
+  renderOccasionTagsList();
+  updateLiveHeroPreview();
+};
+
+function renderFeaturesEditList() {
+  const container = document.getElementById("featuresListContainer");
+  if (!container) return;
+
+  const features = currentSiteSettings.features || [];
+  if (features.length === 0) {
+    container.innerHTML = `<span style="font-size: 0.8rem; color: var(--admin-text-muted);">No features added yet. Click "+ Add Feature Item".</span>`;
+    return;
+  }
+
+  container.innerHTML = features.map((feat, idx) => `
+    <div class="feature-edit-item">
+      <span style="color: var(--admin-green); font-size: 0.9rem; font-weight: bold;">❖</span>
+      <input 
+        type="text" 
+        class="feature-input" 
+        value="${escapeHtml(feat)}" 
+        placeholder="e.g. Premium cotton blend" 
+        oninput="handleFeatureInput(${idx}, this.value)"
+      >
+      <div style="display: flex; gap: 0.25rem;">
+        ${idx > 0 ? `<button type="button" class="btn-feature-action" onclick="moveFeature(${idx}, -1)" title="Move Up">▲</button>` : ""}
+        ${idx < features.length - 1 ? `<button type="button" class="btn-feature-action" onclick="moveFeature(${idx}, 1)" title="Move Down">▼</button>` : ""}
+        <button type="button" class="btn-feature-action btn-feature-del" onclick="deleteFeature(${idx})" title="Delete Feature">✕</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+window.handleFeatureInput = function(idx, val) {
+  if (currentSiteSettings.features && currentSiteSettings.features[idx] !== undefined) {
+    currentSiteSettings.features[idx] = val;
+    updateLiveHeroPreview();
+  }
+};
+
+window.moveFeature = function(idx, dir) {
+  const arr = currentSiteSettings.features;
+  const target = idx + dir;
+  if (target < 0 || target >= arr.length) return;
+  const temp = arr[idx];
+  arr[idx] = arr[target];
+  arr[target] = temp;
+  renderFeaturesEditList();
+  updateLiveHeroPreview();
+};
+
+window.deleteFeature = function(idx) {
+  currentSiteSettings.features.splice(idx, 1);
+  renderFeaturesEditList();
+  updateLiveHeroPreview();
+};
+
+function calculateMinProductPrice() {
+  const inStock = currentProducts.filter(p => !p.is_out_of_stock && Number(p.price) > 0);
+  if (inStock.length > 0) {
+    return Math.min(...inStock.map(p => Number(p.price)));
+  }
+  const allValid = currentProducts.filter(p => Number(p.price) > 0);
+  if (allValid.length > 0) {
+    return Math.min(...allValid.map(p => Number(p.price)));
+  }
+  return null;
+}
+
+function updateLiveHeroPreview() {
+  const hero = currentSiteSettings.hero || DEFAULT_SITE_SETTINGS.hero;
+  const features = currentSiteSettings.features || DEFAULT_SITE_SETTINGS.features;
+
+  // Tagline
+  const prevTagline = document.getElementById("prevHeroTagline");
+  if (prevTagline) {
+    prevTagline.textContent = hero.tagline || DEFAULT_SITE_SETTINGS.hero.tagline;
+  }
+
+  // Title
+  const prevTitle = document.getElementById("prevHeroTitle");
+  if (prevTitle) {
+    prevTitle.textContent = hero.title || DEFAULT_SITE_SETTINGS.hero.title;
+  }
+
+  // Subtitle
+  const prevSubtitle = document.getElementById("prevHeroSubtitle");
+  if (prevSubtitle) {
+    prevSubtitle.textContent = hero.subtitle || DEFAULT_SITE_SETTINGS.hero.subtitle;
+  }
+
+  // Occasions strip
+  const prevOccasions = document.getElementById("prevHeroOccasionsStrip");
+  if (prevOccasions) {
+    const list = hero.occasions && hero.occasions.length > 0 ? hero.occasions : DEFAULT_SITE_SETTINGS.hero.occasions;
+    prevOccasions.innerHTML = list.map(t => `<span>${escapeHtml(t)}</span>`).join(`<span class="bullet">•</span>`);
+  }
+
+  // Starting Price
+  const prevPrice = document.getElementById("prevHeroPrice");
+  if (prevPrice) {
+    let priceToShow = hero.startingPrice;
+    if (hero.autoMinPrice) {
+      const minP = calculateMinProductPrice();
+      if (minP !== null) {
+        priceToShow = minP;
+      }
+    }
+    prevPrice.textContent = `₹${priceToShow || 799}`;
+  }
+
+  // Button text
+  const prevBtnText = document.getElementById("prevHeroBtnText");
+  if (prevBtnText) {
+    prevBtnText.textContent = hero.ctaText || "Shop Now";
+  }
+
+  // Background Image
+  const previewBox = document.getElementById("heroLivePreviewBox");
+  if (previewBox) {
+    if (hero.bgImage) {
+      previewBox.style.backgroundImage = `linear-gradient(rgba(250, 246, 239, 0.88), rgba(250, 246, 239, 0.88)), url('${hero.bgImage}')`;
+      previewBox.style.backgroundSize = "cover";
+      previewBox.style.backgroundPosition = "center";
+    } else {
+      previewBox.style.backgroundImage = "radial-gradient(circle at 50% 20%, #FFFDF7 0%, #F5ECE0 100%)";
+    }
+  }
+
+  // Features Preview
+  const prevTrust = document.getElementById("prevTrustStrip");
+  if (prevTrust) {
+    const featList = features && features.length > 0 ? features : DEFAULT_SITE_SETTINGS.features;
+    prevTrust.innerHTML = featList.map(f => `<span>✓ ${escapeHtml(f)}</span>`).join(`<span style="color: var(--admin-gold-light); margin: 0 4px;">•</span>`);
+  }
+}
+
+function renderHeroEditor() {
+  const s = currentSiteSettings;
+  const hero = s.hero || DEFAULT_SITE_SETTINGS.hero;
+  const contacts = s.contacts || DEFAULT_SITE_SETTINGS.contacts;
+
+  const taglineInput = document.getElementById("heroTaglineInput");
+  if (taglineInput) taglineInput.value = hero.tagline || "";
+
+  const titleInput = document.getElementById("heroTitleInput");
+  if (titleInput) titleInput.value = hero.title || "";
+
+  const subtitleInput = document.getElementById("heroSubtitleInput");
+  if (subtitleInput) subtitleInput.value = hero.subtitle || "";
+
+  const priceInput = document.getElementById("heroPriceInput");
+  if (priceInput) {
+    priceInput.value = hero.startingPrice !== undefined ? hero.startingPrice : 799;
+    priceInput.disabled = !!hero.autoMinPrice;
+  }
+
+  const autoMinCheck = document.getElementById("heroAutoMinPriceCheck");
+  if (autoMinCheck) autoMinCheck.checked = !!hero.autoMinPrice;
+
+  const btnTextInput = document.getElementById("heroBtnTextInput");
+  if (btnTextInput) btnTextInput.value = hero.ctaText || "Shop Now";
+
+  const scrollTargetInput = document.getElementById("heroScrollTargetInput");
+  if (scrollTargetInput) scrollTargetInput.value = hero.ctaScrollTarget || "#products";
+
+  const removeBgBtn = document.getElementById("btnRemoveHeroBg");
+  if (removeBgBtn) {
+    removeBgBtn.style.display = hero.bgImage ? "inline-block" : "none";
+  }
+
+  const dispPhoneInput = document.getElementById("contactDisplayPhone");
+  if (dispPhoneInput) dispPhoneInput.value = contacts.displayPhone || "+91 93218 03696";
+
+  const waPhoneInput = document.getElementById("contactWaPhone");
+  if (waPhoneInput) waPhoneInput.value = contacts.phone || "919321803696";
+
+  const heroMaps = document.getElementById("contactMapsUrl");
+  if (heroMaps) heroMaps.value = contacts.mapsUrl || "";
+
+  const heroInsta = document.getElementById("contactInstagramUrl");
+  if (heroInsta) heroInsta.value = contacts.instagramUrl || "";
+
+  const footerTaglineInput = document.getElementById("footerTaglineInput");
+  if (footerTaglineInput) footerTaglineInput.value = s.footerTagline || "";
+
+  renderOccasionTagsList();
+  renderFeaturesEditList();
+  updateLiveHeroPreview();
+}
+
+async function saveAllSiteSettings() {
+  // Sync inputs to memory
+  const taglineInput = document.getElementById("heroTaglineInput");
+  if (taglineInput) currentSiteSettings.hero.tagline = taglineInput.value.trim() || DEFAULT_SITE_SETTINGS.hero.tagline;
+
+  const titleInput = document.getElementById("heroTitleInput");
+  if (titleInput) currentSiteSettings.hero.title = titleInput.value.trim() || DEFAULT_SITE_SETTINGS.hero.title;
+
+  const subtitleInput = document.getElementById("heroSubtitleInput");
+  if (subtitleInput) currentSiteSettings.hero.subtitle = subtitleInput.value.trim() || DEFAULT_SITE_SETTINGS.hero.subtitle;
+
+  const priceInput = document.getElementById("heroPriceInput");
+  if (priceInput) currentSiteSettings.hero.startingPrice = parseInt(priceInput.value, 10) || 799;
+
+  const autoMinCheck = document.getElementById("heroAutoMinPriceCheck");
+  if (autoMinCheck) currentSiteSettings.hero.autoMinPrice = autoMinCheck.checked;
+
+  const btnTextInput = document.getElementById("heroBtnTextInput");
+  if (btnTextInput) currentSiteSettings.hero.ctaText = btnTextInput.value.trim() || "Shop Now";
+
+  const scrollTargetInput = document.getElementById("heroScrollTargetInput");
+  if (scrollTargetInput) currentSiteSettings.hero.ctaScrollTarget = scrollTargetInput.value;
+
+  const dispPhoneInput = document.getElementById("contactDisplayPhone");
+  if (dispPhoneInput) currentSiteSettings.contacts.displayPhone = dispPhoneInput.value.trim() || "+91 93218 03696";
+
+  const waPhoneInput = document.getElementById("contactWaPhone");
+  if (waPhoneInput) {
+    const rawWa = waPhoneInput.value.replace(/[^0-9]/g, "");
+    currentSiteSettings.contacts.phone = rawWa || "919321803696";
+  }
+
+  const heroMaps = document.getElementById("contactMapsUrl");
+  if (heroMaps) currentSiteSettings.contacts.mapsUrl = heroMaps.value.trim();
+
+  const heroInsta = document.getElementById("contactInstagramUrl");
+  if (heroInsta) currentSiteSettings.contacts.instagramUrl = cleanInstagramUrl(heroInsta.value);
+
+  populateStoreSettingsInputs();
+
+  const footerTaglineInput = document.getElementById("footerTaglineInput");
+  if (footerTaglineInput) currentSiteSettings.footerTagline = footerTaglineInput.value.trim() || DEFAULT_SITE_SETTINGS.footerTagline;
+
+  // Clean empty features
+  currentSiteSettings.features = (currentSiteSettings.features || [])
+    .map(f => f.trim())
+    .filter(f => f.length > 0);
+  if (currentSiteSettings.features.length === 0) {
+    currentSiteSettings.features = [...DEFAULT_SITE_SETTINGS.features];
+  }
+
+  try {
+    await persistSiteSettings(currentSiteSettings);
+    showToast("✅ Hero banner & store settings published live!");
+  } catch (err) {
+    console.error("Save settings failed:", err);
+    showToast("Error saving to cloud. Settings saved in local storage.");
+  }
+}
+
+function resetHeroSettingsToDefaults() {
+  if (confirm("Reset hero banner and store settings to defaults?")) {
+    currentSiteSettings = JSON.parse(JSON.stringify(DEFAULT_SITE_SETTINGS));
+    renderHeroEditor();
+    showToast("↺ Settings reset to default values. Click 'Save & Publish' to publish.");
+  }
+}
+
+function initHeroEditor() {
+  // Live input change listeners
+  const taglineInput = document.getElementById("heroTaglineInput");
+  if (taglineInput) {
+    taglineInput.addEventListener("input", (e) => {
+      currentSiteSettings.hero.tagline = e.target.value;
+      updateLiveHeroPreview();
+    });
+  }
+
+  const titleInput = document.getElementById("heroTitleInput");
+  if (titleInput) {
+    titleInput.addEventListener("input", (e) => {
+      currentSiteSettings.hero.title = e.target.value;
+      updateLiveHeroPreview();
+    });
+  }
+
+  const subtitleInput = document.getElementById("heroSubtitleInput");
+  if (subtitleInput) {
+    subtitleInput.addEventListener("input", (e) => {
+      currentSiteSettings.hero.subtitle = e.target.value;
+      updateLiveHeroPreview();
+    });
+  }
+
+  const priceInput = document.getElementById("heroPriceInput");
+  if (priceInput) {
+    priceInput.addEventListener("input", (e) => {
+      currentSiteSettings.hero.startingPrice = parseInt(e.target.value, 10) || 0;
+      updateLiveHeroPreview();
+    });
+  }
+
+  const autoMinCheck = document.getElementById("heroAutoMinPriceCheck");
+  if (autoMinCheck) {
+    autoMinCheck.addEventListener("change", (e) => {
+      currentSiteSettings.hero.autoMinPrice = e.target.checked;
+      if (priceInput) priceInput.disabled = e.target.checked;
+      updateLiveHeroPreview();
+    });
+  }
+
+  const btnTextInput = document.getElementById("heroBtnTextInput");
+  if (btnTextInput) {
+    btnTextInput.addEventListener("input", (e) => {
+      currentSiteSettings.hero.ctaText = e.target.value;
+      updateLiveHeroPreview();
+    });
+  }
+
+  const scrollTargetInput = document.getElementById("heroScrollTargetInput");
+  if (scrollTargetInput) {
+    scrollTargetInput.addEventListener("change", (e) => {
+      currentSiteSettings.hero.ctaScrollTarget = e.target.value;
+    });
+  }
+
+  // Add Occasion Tag
+  const newTagInput = document.getElementById("newOccasionTagInput");
+  const addTagBtn = document.getElementById("btnAddOccasionTag");
+
+  const handleAddTag = () => {
+    if (!newTagInput) return;
+    const val = newTagInput.value.trim();
+    if (!val) return;
+    if (!currentSiteSettings.hero.occasions) {
+      currentSiteSettings.hero.occasions = [];
+    }
+    currentSiteSettings.hero.occasions.push(val);
+    newTagInput.value = "";
+    renderOccasionTagsList();
+    updateLiveHeroPreview();
+  };
+
+  if (addTagBtn) addTagBtn.addEventListener("click", handleAddTag);
+  if (newTagInput) {
+    newTagInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleAddTag();
+      }
+    });
+  }
+
+  // Add Feature Item
+  const addFeatureBtn = document.getElementById("btnAddFeatureItem");
+  if (addFeatureBtn) {
+    addFeatureBtn.addEventListener("click", () => {
+      if (!currentSiteSettings.features) {
+        currentSiteSettings.features = [];
+      }
+      currentSiteSettings.features.push("New Feature Point");
+      renderFeaturesEditList();
+      updateLiveHeroPreview();
+    });
+  }
+
+  // Hero Background Image Upload
+  const bgFileInput = document.getElementById("heroBgFileInput");
+  if (bgFileInput) {
+    bgFileInput.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        showToast("Compressing hero background image to WebP...");
+        const webpDataUrl = await compressImageToWebP(file, 1600, 0.82);
+        currentSiteSettings.hero.bgImage = webpDataUrl;
+
+        const removeBtn = document.getElementById("btnRemoveHeroBg");
+        if (removeBtn) removeBtn.style.display = "inline-block";
+
+        updateLiveHeroPreview();
+        showToast("Hero background image loaded! Click 'Save & Publish' to apply.");
+      } catch (err) {
+        console.error("Hero background compress failed:", err);
+        showToast("Failed to process background image. Please try another file.");
+      }
+    });
+  }
+
+  const removeBgBtn = document.getElementById("btnRemoveHeroBg");
+  if (removeBgBtn) {
+    removeBgBtn.addEventListener("click", () => {
+      currentSiteSettings.hero.bgImage = "";
+      if (bgFileInput) bgFileInput.value = "";
+      removeBgBtn.style.display = "none";
+      updateLiveHeroPreview();
+      showToast("Background image removed. Click 'Save & Publish' to apply.");
+    });
+  }
+
+  // Save Buttons
+  const saveBtnTop = document.getElementById("btnSaveHeroSettings");
+  const saveBtnBottom = document.getElementById("btnSaveHeroSettingsBottom");
+  if (saveBtnTop) saveBtnTop.addEventListener("click", saveAllSiteSettings);
+  if (saveBtnBottom) saveBtnBottom.addEventListener("click", saveAllSiteSettings);
+
+  // Reset Buttons
+  const resetBtnTop = document.getElementById("btnResetHeroDefaults");
+  const resetBtnBottom = document.getElementById("btnResetHeroDefaultsBottom");
+  if (resetBtnTop) resetBtnTop.addEventListener("click", resetHeroSettingsToDefaults);
+  if (resetBtnBottom) resetBtnBottom.addEventListener("click", resetHeroSettingsToDefaults);
+}
+
+/**
+ * ----------------------------------------------------------------------------
+ * 8. MAIN INITIALIZATION
+ * ----------------------------------------------------------------------------
+ */
+async function loadDashboard() {
+  initSupabase();
+  await Promise.all([fetchProducts(), fetchCategories(), fetchSiteSettings()]);
+  renderProductsList();
+  renderCategoryCardsEditor();
+  renderHeroEditor();
+  populateStoreSettingsInputs();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  initAuth();
+
+  // Tab button listeners
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const target = btn.getAttribute("data-tab");
+      switchTab(target);
+    });
+  });
+
+  initPhotoUpload();
+  initProductForm();
+  initSearchAndFilter();
+  initSettings();
+  initHeroEditor();
+});

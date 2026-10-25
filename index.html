@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <meta name="description" content="Premium Men's Kurta & Ethnic Wear - Tradition, Style, and Comfort for festive, wedding, and casual occasions.">
+  <meta name="theme-color" content="#0B0F1A">
+  <title>ManBhar Creation | Men's Kurta's</title>
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+  <link rel="manifest" href="assets/site.webmanifest">
+
+  <!-- Open Graph / WhatsApp / Facebook Share Preview -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="ManBhar Creation | Men's Kurta's">
+  <meta property="og:description" content="Premium Men's Kurta & Ethnic Wear Studio. Tradition, Style, and Comfort for festive, wedding, and casual celebrations. Direct WhatsApp Ordering!">
+  <meta property="og:image" content="assets/og-image.jpg">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="ManBhar Creation | Men's Kurta's">
+  <meta name="twitter:description" content="Premium Men's Kurta & Ethnic Wear Studio. Direct WhatsApp Ordering!">
+  <meta name="twitter:image" content="assets/og-image.jpg">
+
+  <!-- Google Fonts: Royal serif for headings, modern clean sans for body -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Rozha+One&display=swap" rel="stylesheet">
+
+  <!-- Supabase Client SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- TOP BRAND NAV BAR -->
+  <header class="site-header" id="siteHeader">
+    <div class="header-inner container">
+      <a href="#" class="brand-identity" aria-label="ManBhar Creation - Men's Kurta Homepage">
+        <picture class="brand-logo-picture">
+          <source srcset="assets/logo@2x.png 2x, assets/logo.png 1x" type="image/png">
+          <img 
+            src="assets/logo.png" 
+            srcset="assets/logo.png 1x, assets/logo@2x.png 2x" 
+            alt="ManBhar Creation - Men's Kurta" 
+            width="58" 
+            height="58" 
+            class="brand-logo header-logo" 
+            loading="eager" 
+          />
+        </picture>
+        <div class="brand-text-wrap">
+          <span class="brand-title" id="navShopName">MANBHAR CREATION</span>
+          <span class="brand-subtitle" id="navSubtitle">MEN'S KURTA'S</span>
+        </div>
+      </a>
+      <div class="header-actions">
+        <a id="headerVisitStoreBtn" href="https://maps.app.goo.gl/jEg8beEL2Htdr6rZ9" target="_blank" rel="noopener noreferrer" class="header-link">Visit Store</a>
+        <a id="headerCallBtn" href="tel:+919321803696" class="header-btn-phone" aria-label="Call Store">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+          <span class="hide-mobile" id="navPhone">+91 93218 03696</span>
+        </a>
+        <a id="headerInstagramBtn" href="https://www.instagram.com/manbhar_creation" target="_blank" rel="noopener noreferrer" class="header-btn-social" aria-label="Follow ManBhar Creation on Instagram" title="Follow on Instagram">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+            <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+          </svg>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- 1. HERO SECTION -->
+    <section class="hero-section" id="heroSection">
+      <div class="hero-backdrop" id="heroBackdrop"></div>
+      <div class="container hero-container">
+        
+        <div class="hero-badge-top">
+          <span class="gold-ornament">❖</span>
+          <span class="hero-tagline" id="heroTagline">Tradition. Style. Comfort.</span>
+          <span class="gold-ornament">❖</span>
+        </div>
+
+        <h1 class="hero-title" id="heroTitle">MEN KURTA</h1>
+        <p class="hero-subtitle" id="heroSubtitle">Ethnic wear for every occasion</p>
+
+        <!-- Green strip -->
+        <div class="hero-green-strip" id="heroOccasionsStrip">
+          <span>Festive</span>
+          <span class="bullet">•</span>
+          <span>Wedding</span>
+          <span class="bullet">•</span>
+          <span>Casual</span>
+          <span class="bullet">•</span>
+          <span>Everyday</span>
+        </div>
+
+        <!-- Price Badge & CTA -->
+        <div class="hero-cta-wrapper">
+          <div class="price-pill-badge" id="heroBadge">
+            <span class="badge-label">Starting at</span>
+            <span class="badge-price" id="heroStartingPriceDisplay">₹799</span>
+          </div>
+
+          <a href="#products" class="btn-shop-now" id="heroCtaBtn">
+            <span id="heroCtaBtnText">Shop Now</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </a>
+        </div>
+
+        <!-- Subtle festive corner patterns -->
+        <div class="hero-corner hero-corner-tl"></div>
+        <div class="hero-corner hero-corner-tr"></div>
+        <div class="hero-corner hero-corner-bl"></div>
+        <div class="hero-corner hero-corner-br"></div>
+      </div>
+    </section>
+
+    <!-- 2. TRUST STRIP (Dark green, 5 icons with short text) -->
+    <section class="trust-strip">
+      <div class="container trust-container" id="trustStripContainer">
+        
+        <div class="trust-item">
+          <div class="trust-icon-box">
+            <!-- Cotton blend icon -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2C6.48 2 2 6.48 2 12c0 3.31 1.61 6.24 4.09 8.04l.91-1.39C5.07 17.26 4 14.77 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8c0 2.77-1.07 5.26-3 6.65l.91 1.39C20.39 18.24 22 15.31 22 12c0-5.52-4.48-10-10-10z"/>
+              <path d="M12 6c-2.76 0-5 2.24-5 5 0 1.63.78 3.08 2 4 .5.38 1.13.67 1.8.84.4.1.8.16 1.2.16s.8-.06 1.2-.16c.67-.17 1.3-.46 1.8-.84 1.22-.92 2-2.37 2-4 0-2.76-2.24-5-5-5z"/>
+              <path d="M12 16v6"/>
+            </svg>
+          </div>
+          <span class="trust-text">Premium cotton blend</span>
+        </div>
+
+        <div class="trust-item">
+          <div class="trust-icon-box">
+            <!-- Breathable icon -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>
+            </svg>
+          </div>
+          <span class="trust-text">Breathable & comfortable</span>
+        </div>
+
+        <div class="trust-item">
+          <div class="trust-icon-box">
+            <!-- Stylish designs icon -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+            </svg>
+          </div>
+          <span class="trust-text">Stylish designs</span>
+        </div>
+
+        <div class="trust-item">
+          <div class="trust-icon-box">
+            <!-- Durable fabric icon -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              <polyline points="9 12 11 14 15 10"></polyline>
+            </svg>
+          </div>
+          <span class="trust-text">Durable fabric</span>
+        </div>
+
+        <div class="trust-item">
+          <div class="trust-icon-box">
+            <!-- Trusted quality icon -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="8" r="6"></circle>
+              <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"></path>
+            </svg>
+          </div>
+          <span class="trust-text">Trusted quality</span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 3. CATEGORY CARDS SECTION -->
+    <section class="categories-section" id="categories">
+      <div class="container">
+        
+        <div class="section-header">
+          <span class="section-eyebrow">CURATED OCCASIONS</span>
+          <h2 class="section-title">Shop by Category</h2>
+          <p class="section-hint">Tap any category to filter kurtas below</p>
+        </div>
+
+        <!-- Scrollable cards container (mobile scroll-snap) -->
+        <div class="categories-scroll-wrapper">
+          <div class="categories-track" id="categoriesContainer">
+            <!-- Rendered dynamically from SHOP_CONFIG.categories in app.js -->
+          </div>
+        </div>
+
+        <!-- Scroll hint for small screens -->
+        <div class="scroll-indicator-wrap hide-desktop">
+          <span class="scroll-dot active"></span>
+          <span class="scroll-dot"></span>
+          <span class="scroll-dot"></span>
+          <span class="scroll-hint-text">← Swipe to explore categories →</span>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 4. PRODUCT GRID SECTION -->
+    <section class="products-section" id="products">
+      <div class="container">
+        
+        <div class="section-header">
+          <span class="section-eyebrow">OUR CATALOG</span>
+          <h2 class="section-title">Ethnic Collection</h2>
+        </div>
+
+        <!-- Filter bar with active category indicator and reset button -->
+        <div class="filter-controls-bar">
+          <div class="filter-pill-list" id="categoryFilterPills">
+            <button class="filter-pill active" data-category="all">All Styles</button>
+            <button class="filter-pill" data-category="casual">Casual</button>
+            <button class="filter-pill" data-category="short">Short</button>
+            <button class="filter-pill" data-category="embroidered">Embroidered</button>
+            <button class="filter-pill" data-category="festive">Festive</button>
+            <button class="filter-pill" data-category="wedding">Wedding</button>
+          </div>
+          
+          <div class="filter-status-row">
+            <span class="filter-count" id="productCount">Showing 8 styles</span>
+            <button class="btn-clear-filter" id="clearFilterBtn" style="display: none;">
+              <span>Clear Filter</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Product Grid -->
+        <div class="products-grid" id="productsGrid">
+          <!-- Rendered dynamically from SHOP_CONFIG.products in app.js -->
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 5. OFFER STRIP (Deep Maroon) -->
+    <section class="offer-strip">
+      <div class="container offer-container">
+        <div class="offer-item">
+          <div class="offer-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+          </div>
+          <div class="offer-content">
+            <span class="offer-title">Free Delivery</span>
+            <span class="offer-desc" id="offerFreeDelivery">On selected orders</span>
+          </div>
+        </div>
+
+        <div class="offer-divider"></div>
+
+        <div class="offer-item">
+          <div class="offer-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path></svg>
+          </div>
+          <div class="offer-content">
+            <span class="offer-title">Easy Returns</span>
+            <span class="offer-desc" id="offerEasyReturns">7-day hassle-free exchange</span>
+          </div>
+        </div>
+
+        <div class="offer-divider"></div>
+
+        <div class="offer-item offer-custom-pill">
+          <div class="offer-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          </div>
+          <div class="offer-content">
+            <span class="offer-title">Exclusive Offer</span>
+            <span class="offer-desc" id="offerCustom">Flat ₹200 OFF on your first WhatsApp order</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. VISIT US / FIND OUR STORE SECTION -->
+    <section class="visit-section" id="visit">
+      <div class="container">
+        
+        <div class="section-header">
+          <span class="section-eyebrow">FIND OUR STORE</span>
+          <h2 class="section-title">Visit Our Store</h2>
+          <p class="section-hint">Step in to experience rich fabrics and customized festive fitting</p>
+        </div>
+
+        <div class="visit-card">
+          <div class="visit-header-pattern">
+            <div class="pattern-corner top-left"></div>
+            <div class="pattern-corner top-right"></div>
+          </div>
+
+          <div class="visit-grid">
+            <div class="visit-detail-item" id="visitShopNameItem">
+              <div class="visit-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+              </div>
+              <div class="visit-info">
+                <span class="visit-label">Store Name</span>
+                <span class="visit-val highlight" id="visitShopName">ManBhar Creation | Men's Kurta's</span>
+              </div>
+            </div>
+
+            <div class="visit-detail-item" id="visitAddressItem">
+              <div class="visit-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+              </div>
+              <div class="visit-info">
+                <span class="visit-label">Store Address</span>
+                <span class="visit-val" id="visitAddress">Shop No. 14, Royal Heritage Arcade, MG Road, Pune, Maharashtra 411001</span>
+              </div>
+            </div>
+
+            <div class="visit-detail-item" id="visitTimingsItem">
+              <div class="visit-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              </div>
+              <div class="visit-info">
+                <span class="visit-label">Timings</span>
+                <span class="visit-val" id="visitTimings">Mon - Sun: 10:30 AM to 9:30 PM</span>
+              </div>
+            </div>
+
+            <div class="visit-detail-item" id="visitPhoneItem">
+              <div class="visit-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+              </div>
+              <div class="visit-info">
+                <span class="visit-label">Phone & Inquiries</span>
+                <a href="tel:+919321803696" class="visit-val phone-link" id="visitPhone">+91 93218 03696</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons: Get Directions & Follow on Instagram -->
+          <div class="visit-actions">
+            <a href="https://maps.app.goo.gl/jEg8beEL2Htdr6rZ9" target="_blank" rel="noopener noreferrer" class="btn-maps" id="visitMapsBtn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon><line x1="9" y1="3" x2="9" y2="18"></line><line x1="15" y1="6" x2="15" y2="21"></line></svg>
+              <span>Get Directions</span>
+            </a>
+
+            <a href="https://www.instagram.com/manbhar_creation" target="_blank" rel="noopener noreferrer" class="btn-instagram" id="visitInstagramBtn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+              </svg>
+              <span>Follow on Instagram</span>
+            </a>
+          </div>
+
+          <!-- Embedded Google Map -->
+          <div class="visit-map-wrapper" id="visitMapContainer">
+            <iframe 
+              id="visitMapIframe" 
+              class="visit-map-iframe" 
+              src="https://maps.google.com/maps?q=Shop%20No.%2014%2C%20Royal%20Heritage%20Arcade%2C%20MG%20Road%2C%20Pune%2C%20Maharashtra%20411001&t=&z=15&ie=UTF8&iwloc=&output=embed" 
+              width="100%" 
+              height="320" 
+              style="border:0;" 
+              allowfullscreen="" 
+              loading="lazy" 
+              referrerpolicy="no-referrer-when-downgrade"
+              title="ManBhar Creation Store Location Map"
+            ></iframe>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <div class="container footer-content">
+      <div class="footer-brand-wrap">
+        <picture class="footer-logo-picture">
+          <source srcset="assets/logo@2x.png 2x, assets/logo.png 1x" type="image/png">
+          <img 
+            src="assets/logo.png" 
+            srcset="assets/logo.png 1x, assets/logo@2x.png 2x" 
+            alt="ManBhar Creation - Men's Kurta" 
+            width="90" 
+            height="90" 
+            class="brand-logo footer-logo" 
+            loading="lazy" 
+          />
+        </picture>
+        <span class="footer-shop-name" id="footerShopName">ManBhar Creation | Men's Kurta's</span>
+      </div>
+      <p class="footer-note" id="footerTagline">Crafted for traditional elegance & timeless festive celebrations.</p>
+      
+      <!-- Footer Quick Action Links -->
+      <div class="footer-links-row">
+        <a id="footerMapsLink" href="https://maps.app.goo.gl/jEg8beEL2Htdr6rZ9" target="_blank" rel="noopener noreferrer" class="footer-action-link">📍 Visit Our Store</a>
+        <span class="footer-sep" id="footerSep1">•</span>
+        <a id="footerInstagramLink" href="https://www.instagram.com/manbhar_creation" target="_blank" rel="noopener noreferrer" class="footer-action-link">📸 Follow on Instagram</a>
+        <span class="footer-sep" id="footerSep2">•</span>
+        <a href="admin.html" class="footer-admin-link">🔒 Admin Portal</a>
+      </div>
+
+      <div class="footer-bottom-line">
+        <span>© <span id="currentYear">2026</span> All Rights Reserved</span>
+        <span class="footer-sep">•</span>
+        <span>WhatsApp Quick Ordering Enabled</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- MULTIPLE PHOTOS LIGHTBOX MODAL -->
+  <div id="productLightbox" class="lightbox-overlay" aria-hidden="true" style="display: none;">
+    <div class="lightbox-dialog">
+      <button type="button" class="btn-lightbox-close" id="lightboxCloseBtn" aria-label="Close Lightbox">✕</button>
+      
+      <div class="lightbox-slider">
+        <button type="button" class="lightbox-nav-btn prev" id="lightboxPrevBtn" aria-label="Previous Photo">❮</button>
+        <div class="lightbox-img-wrap">
+          <img src="" alt="Product Photo" id="lightboxImg" class="lightbox-img">
+        </div>
+        <button type="button" class="lightbox-nav-btn next" id="lightboxNextBtn" aria-label="Next Photo">❯</button>
+      </div>
+
+      <div class="lightbox-footer">
+        <div class="lightbox-info">
+          <h4 id="lightboxTitle" class="lightbox-title"></h4>
+          <span id="lightboxPrice" class="lightbox-price"></span>
+        </div>
+        <div class="lightbox-counter" id="lightboxCounter">1 / 1</div>
+      </div>
+
+      <!-- Thumbnail Strip -->
+      <div class="lightbox-thumbs-strip" id="lightboxThumbs"></div>
+    </div>
+  </div>
+
+  <!-- FLOATING INSTAGRAM BUTTON (Positioned cleanly above WhatsApp on mobile & desktop) -->
+  <a 
+    href="https://www.instagram.com/manbhar_creation" 
+    target="_blank" 
+    rel="noopener noreferrer" 
+    class="floating-instagram-btn" 
+    id="floatingInstagramBtn" 
+    aria-label="Follow ManBhar Creation on Instagram"
+    title="Follow on Instagram"
+  >
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+    </svg>
+  </a>
+
+  <!-- 7. STICKY "WHATSAPP" BUTTON AT BOTTOM ON MOBILE & DESKTOP FLOATER -->
+  <div class="sticky-whatsapp-bar" id="stickyWhatsAppBar">
+    <a href="#" class="sticky-whatsapp-btn" id="stickyWhatsAppBtn" target="_blank" rel="noopener noreferrer">
+      <div class="whatsapp-icon-wrap">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+          <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.669-.699c.969.529 1.836.78 2.791.78 3.181 0 5.767-2.586 5.768-5.766 0-3.18-2.587-5.766-5.768-5.766zm9.969 5.766c0 5.514-4.486 10-10 10-1.742 0-3.376-.447-4.802-1.229l-5.198 1.362 1.385-5.064c-.878-1.493-1.385-3.235-1.385-5.069 0-5.514 4.486-10 10-10s10 4.486 10 10z"/>
+        </svg>
+        <span class="online-indicator"></span>
+      </div>
+      <span class="whatsapp-label">Order on WhatsApp</span>
+    </a>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
